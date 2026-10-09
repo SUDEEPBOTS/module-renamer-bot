@@ -29,10 +29,6 @@ const Banner = `
 func main() {
 	fmt.Print(Banner)
 
-	healthSrv := server.NewHealthServer()
-	healthSrv.Start()
-	defer healthSrv.Stop()
-
 	cliDir := flag.String("dir", "", "Directory path to rebrand in CLI mode")
 	cliOld := flag.String("old", "", "Old name/module to search for")
 	cliNew := flag.String("new", "", "New name/module to replace with")
@@ -44,6 +40,10 @@ func main() {
 	}
 
 	cfg := config.LoadConfig()
+
+	healthSrv := server.NewHealthServer()
+	healthSrv.Start()
+	defer healthSrv.Stop()
 
 	db, err := database.NewDatabase(cfg.MongoURI, cfg.DatabaseName)
 	if err != nil {
