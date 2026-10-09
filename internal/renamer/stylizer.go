@@ -40,6 +40,35 @@ var CustomFancyMap = map[rune]rune{
 	'g': 'ɢ', 'G': '𝐆',
 }
 
+var SmallCapsMap = map[rune]rune{
+	'a': 'ᴀ', 'A': 'ᴀ',
+	'b': 'ʙ', 'B': 'ʙ',
+	'c': 'ᴄ', 'C': 'ᴄ',
+	'd': 'ᴅ', 'D': 'ᴅ',
+	'e': 'ᴇ', 'E': 'ᴇ',
+	'f': 'ғ', 'F': 'ғ',
+	'g': 'ɢ', 'G': 'ɢ',
+	'h': 'ʜ', 'H': 'ʜ',
+	'i': 'ɪ', 'I': 'ɪ',
+	'j': 'ᴊ', 'J': 'ᴊ',
+	'k': 'ᴋ', 'K': 'ᴋ',
+	'l': 'ʟ', 'L': 'ʟ',
+	'm': 'ᴍ', 'M': 'ᴍ',
+	'n': 'ɴ', 'N': 'ɴ',
+	'o': 'ᴏ', 'O': 'ᴏ',
+	'p': 'ᴘ', 'P': 'ᴘ',
+	'q': 'ǫ', 'Q': 'ǫ',
+	'r': 'ʀ', 'R': 'ʀ',
+	's': 's', 'S': 's',
+	't': 'ᴛ', 'T': 'ᴛ',
+	'u': 'ᴜ', 'U': 'ᴜ',
+	'v': 'ᴠ', 'V': 'ᴠ',
+	'w': 'ᴡ', 'W': 'ᴡ',
+	'x': 'x', 'X': 'x',
+	'y': 'ʏ', 'Y': 'ʏ',
+	'z': 'ᴢ', 'Z': 'ᴢ',
+}
+
 func ToBoldSerif(text string) string {
 	var sb strings.Builder
 	for _, r := range text {
@@ -58,6 +87,18 @@ func ToAestheticFancy(text string) string {
 		if mapped, ok := CustomFancyMap[r]; ok {
 			sb.WriteRune(mapped)
 		} else if mapped, ok := StyledBoldSerifMap[r]; ok {
+			sb.WriteRune(mapped)
+		} else {
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
+}
+
+func ToSmallCaps(text string) string {
+	var sb strings.Builder
+	for _, r := range text {
+		if mapped, ok := SmallCapsMap[r]; ok {
 			sb.WriteRune(mapped)
 		} else {
 			sb.WriteRune(r)

@@ -43,7 +43,7 @@ func (b *Bot) CheckFSub(userID int64) (bool, error) {
 }
 
 func (b *Bot) SendFSubPrompt(chatID int64) {
-	fsubTitle := renamer.ToBoldSerif("Must Join Channel Required")
+	fsubTitle := renamer.ToSmallCaps("Must Join Channel Required")
 	cleanChannel := strings.TrimPrefix(b.cfg.FSubChannel, "@")
 
 	text := "<blockquote>⚠️ <b>" + fsubTitle + "</b></blockquote>\n\n" +

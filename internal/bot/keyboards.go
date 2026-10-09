@@ -9,14 +9,14 @@ import (
 )
 
 func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubChannel string) tgbotapi.InlineKeyboardMarkup {
-	ownerBtnText := renamer.ToAestheticFancy("Owner")
-	repoBtnText := renamer.ToAestheticFancy("Repo")
-	supportBtnText := renamer.ToAestheticFancy("Support")
-	channelBtnText := renamer.ToAestheticFancy("Channel")
-	helpBtnText := renamer.ToBoldSerif("Help & Commands")
-	renameBtnText := renamer.ToBoldSerif("Rename Codebase")
-	authorBtnText := renamer.ToAestheticFancy("Scan Author")
-	linksBtnText := renamer.ToAestheticFancy("Scan Links")
+	ownerBtnText := renamer.ToSmallCaps("Owner")
+	repoBtnText := renamer.ToSmallCaps("Repo")
+	supportBtnText := renamer.ToSmallCaps("Support")
+	channelBtnText := renamer.ToSmallCaps("Channel")
+	renameBtnText := renamer.ToSmallCaps("Rename Codebase")
+	authorBtnText := renamer.ToSmallCaps("Scan Author")
+	linksBtnText := renamer.ToSmallCaps("Scan Links")
+	helpBtnText := renamer.ToSmallCaps("Help & Commands")
 
 	ownerLink := "https://t.me/" + strings.TrimPrefix(ownerUsername, "@")
 	supportLink := "https://t.me/" + strings.TrimPrefix(supportChat, "@")
@@ -49,7 +49,7 @@ func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubCha
 	rows = append(rows, row4)
 
 	if isSudo {
-		adminBtnText := renamer.ToBoldSerif("Admin Panel")
+		adminBtnText := renamer.ToSmallCaps("Admin Panel")
 		rowAdmin := []tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardButtonData("🛡️ "+adminBtnText, "cmd_admin_panel"),
 		}
@@ -60,19 +60,20 @@ func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubCha
 }
 
 func MakeConfirmAuthorKeyboard(sessionID string) tgbotapi.InlineKeyboardMarkup {
-	replaceText := renamer.ToBoldSerif("Replace Name")
+	replaceText := renamer.ToSmallCaps("Replace Name")
+	cancelText := renamer.ToSmallCaps("Cancel")
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("✍️ "+replaceText, "author_replace:"+sessionID),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel:"+sessionID),
+			tgbotapi.NewInlineKeyboardButtonData("❌ "+cancelText, "cancel:"+sessionID),
 		),
 	)
 }
 
 func MakeHelpKeyboard(page int) tgbotapi.InlineKeyboardMarkup {
-	backText := renamer.ToAestheticFancy("Back")
-	nextText := renamer.ToAestheticFancy("Next")
-	mainText := renamer.ToBoldSerif("Main Menu")
+	backText := renamer.ToSmallCaps("Back")
+	nextText := renamer.ToSmallCaps("Next")
+	mainText := renamer.ToSmallCaps("Main Menu")
 
 	var navRow []tgbotapi.InlineKeyboardButton
 
@@ -130,19 +131,19 @@ func MakeLinksPaginationKeyboard(links []renamer.DiscoveredLink, page int, total
 
 	var navRow []tgbotapi.InlineKeyboardButton
 	if page > 1 {
-		backText := renamer.ToAestheticFancy("Back")
+		backText := renamer.ToSmallCaps("Back")
 		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ "+backText, fmt.Sprintf("link_page:%d", page-1)))
 	}
 	navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("📄 %d/%d", page, totalPages), "noop"))
 	if page < totalPages {
-		nextText := renamer.ToAestheticFancy("Next")
+		nextText := renamer.ToSmallCaps("Next")
 		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(nextText+" ➡️", fmt.Sprintf("link_page:%d", page+1)))
 	}
 	rows = append(rows, navRow)
 
 	cancelRow := tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel:"+sessionID),
-		tgbotapi.NewInlineKeyboardButtonData("🔙 "+renamer.ToBoldSerif("Main"), "back_start"),
+		tgbotapi.NewInlineKeyboardButtonData("❌ "+renamer.ToSmallCaps("Cancel"), "cancel:"+sessionID),
+		tgbotapi.NewInlineKeyboardButtonData("🔙 "+renamer.ToSmallCaps("Main"), "back_start"),
 	)
 	rows = append(rows, cancelRow)
 
@@ -150,10 +151,10 @@ func MakeLinksPaginationKeyboard(links []renamer.DiscoveredLink, page int, total
 }
 
 func MakePostLinkReplaceKeyboard(sessionID string) tgbotapi.InlineKeyboardMarkup {
-	zipText := renamer.ToBoldSerif("Export ZIP")
-	gitText := renamer.ToBoldSerif("Push to GitHub")
-	moreLinksText := renamer.ToAestheticFancy("Scan More Links")
-	mainText := renamer.ToBoldSerif("Main Menu")
+	zipText := renamer.ToSmallCaps("Export ZIP")
+	gitText := renamer.ToSmallCaps("Push to GitHub")
+	moreLinksText := renamer.ToSmallCaps("Scan More Links")
+	mainText := renamer.ToSmallCaps("Main Menu")
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
@@ -168,49 +169,54 @@ func MakePostLinkReplaceKeyboard(sessionID string) tgbotapi.InlineKeyboardMarkup
 }
 
 func MakeDeliveryChoiceKeyboard(sessionID string) tgbotapi.InlineKeyboardMarkup {
+	zipText := renamer.ToSmallCaps("Download as ZIP")
+	gitText := renamer.ToSmallCaps("Push to GitHub")
+	cancelText := renamer.ToSmallCaps("Cancel")
+
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📦 Download as ZIP", "export_zip:"+sessionID),
-			tgbotapi.NewInlineKeyboardButtonData("🚀 Push to GitHub", "export_github:"+sessionID),
+			tgbotapi.NewInlineKeyboardButtonData("📦 "+zipText, "export_zip:"+sessionID),
+			tgbotapi.NewInlineKeyboardButtonData("🚀 "+gitText, "export_github:"+sessionID),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel Operation", "cancel:"+sessionID),
+			tgbotapi.NewInlineKeyboardButtonData("❌ "+cancelText, "cancel:"+sessionID),
 		),
 	)
 }
 
 func MakeFSubKeyboard(channelUsername string) tgbotapi.InlineKeyboardMarkup {
 	link := "https://t.me/" + channelUsername
-	joinText := renamer.ToBoldSerif("Join Channel")
+	joinText := renamer.ToSmallCaps("Join Channel")
+	verifyText := renamer.ToSmallCaps("Verify Membership")
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("🔔 "+joinText, link),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🔄 Verify Membership", "verify_fsub"),
+			tgbotapi.NewInlineKeyboardButtonData("🔄 "+verifyText, "verify_fsub"),
 		),
 	)
 }
 
 func MakeAdminPanelKeyboard(loggerActive bool) tgbotapi.InlineKeyboardMarkup {
-	logToggleText := "🔴 Turn Logger OFF"
+	logToggleText := "🔴 " + renamer.ToSmallCaps("Turn Logger OFF")
 	if !loggerActive {
-		logToggleText = "🟢 Turn Logger ON"
+		logToggleText = "🟢 " + renamer.ToSmallCaps("Turn Logger ON")
 	}
 
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📊 System Stats", "admin_stats"),
-			tgbotapi.NewInlineKeyboardButtonData("👥 User Count", "admin_users"),
+			tgbotapi.NewInlineKeyboardButtonData("📊 "+renamer.ToSmallCaps("System Stats"), "admin_stats"),
+			tgbotapi.NewInlineKeyboardButtonData("👥 "+renamer.ToSmallCaps("User Count"), "admin_users"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(logToggleText, "admin_toggle_logger"),
-			tgbotapi.NewInlineKeyboardButtonData("📢 Broadcast", "admin_bcast_info"),
+			tgbotapi.NewInlineKeyboardButtonData("📢 "+renamer.ToSmallCaps("Broadcast"), "admin_bcast_info"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🚫 GBan Controls", "admin_gban_info"),
-			tgbotapi.NewInlineKeyboardButtonData("🔙 Main Menu", "back_start"),
+			tgbotapi.NewInlineKeyboardButtonData("🚫 "+renamer.ToSmallCaps("GBan Controls"), "admin_gban_info"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 "+renamer.ToSmallCaps("Main Menu"), "back_start"),
 		),
 	)
 }

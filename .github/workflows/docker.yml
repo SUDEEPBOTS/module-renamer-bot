@@ -2,9 +2,9 @@ name: Docker Build Validation
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "dev" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "dev" ]
 
 jobs:
   docker:

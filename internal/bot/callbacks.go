@@ -90,7 +90,7 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 				"• <b>Occurrences:</b> <code>%d</code> in codebase</blockquote>\n\n"+
 				"<blockquote>Please reply with the <b>New Replacement Link / URL</b>:\n"+
 				"<i>Example:</i> <code>https://t.me/YourChannel</code> or <code>t.me/YourBot</code></blockquote>",
-			renamer.ToBoldSerif("Replace Selected Link"),
+			renamer.ToSmallCaps("Replace Selected Link"),
 			targetLink.URL,
 			targetLink.Count,
 		)
@@ -125,7 +125,7 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 				"<blockquote><b>Discovered Telemetry:</b>\n"+
 				"• <b>Unique Links Found:</b> <code>%d</code></blockquote>\n\n"+
 				"<blockquote>👇 <i>Click any link in the interactive list below to replace it across the entire codebase:</i></blockquote>",
-			renamer.ToBoldSerif(fmt.Sprintf("Repository Links [Page %d/%d]", pageNum, totalPages)),
+			renamer.ToSmallCaps(fmt.Sprintf("Repository Links [Page %d/%d]", pageNum, totalPages)),
 			len(session.DiscoveredLinks),
 		)
 
@@ -150,7 +150,7 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 			"<blockquote>✍️ <b>%s</b></blockquote>\n\n"+
 				"<blockquote>Please reply with the <b>New Replacement Name</b> for <code>%s</code>:\n"+
 				"<i>Any font style or plain text is accepted (e.g. <code>SUDEEP</code> or <code>𝐒υᴅᴇᴇᴘ</code>).</i></blockquote>",
-			renamer.ToBoldSerif("Specify Replacement Name"),
+			renamer.ToSmallCaps("Specify Replacement Name"),
 			session.AuthorQuery,
 		)
 		edit := tgbotapi.NewEditMessageText(chatID, messageID, promptText)
@@ -313,7 +313,7 @@ func (b *Bot) handleExportGitHub(chatID int64, messageID int, userID int64) {
 		"<blockquote>🚀 <b>%s</b></blockquote>\n\n"+
 			"<blockquote>Please reply with the <b>Target GitHub Repository URL</b>\n"+
 			"<i>Example:</i> <code>https://github.com/SUDEEPBOTS/NewRebrandedRepo</code></blockquote>",
-		renamer.ToBoldSerif("Deploy to GitHub"),
+		renamer.ToSmallCaps("Deploy to GitHub"),
 	)
 
 	edit := tgbotapi.NewEditMessageText(chatID, messageID, promptText)

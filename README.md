@@ -13,8 +13,8 @@
 <p>
   <a href="https://github.com/SUDEEPBOTS/module-renamer-bot/stargazers"><img src="https://img.shields.io/github/stars/SUDEEPBOTS/module-renamer-bot?style=for-the-badge&logo=github&color=00F2FE&logoColor=white" alt="Stars"></a>
   <a href="https://github.com/SUDEEPBOTS/module-renamer-bot/network/members"><img src="https://img.shields.io/github/forks/SUDEEPBOTS/module-renamer-bot?style=for-the-badge&logo=git&color=FF0055&logoColor=white" alt="Forks"></a>
-  <a href="https://github.com/SUDEEPBOTS/module-renamer-bot/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SUDEEPBOTS/module-renamer-bot/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=Go+CI" alt="CI"></a>
-  <a href="https://github.com/SUDEEPBOTS/module-renamer-bot/actions/workflows/docker.yml"><img src="https://img.shields.io/github/actions/workflow/status/SUDEEPBOTS/module-renamer-bot/docker.yml?branch=main&style=for-the-badge&logo=docker&logoColor=white&label=Docker" alt="Docker"></a>
+  <a href="https://github.com/SUDEEPBOTS/module-renamer-bot/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/SUDEEPBOTS/module-renamer-bot/ci.yml?branch=dev&style=for-the-badge&logo=githubactions&logoColor=white&label=Go+CI" alt="CI"></a>
+  <a href="https://github.com/SUDEEPBOTS/module-renamer-bot/actions/workflows/docker.yml"><img src="https://img.shields.io/github/actions/workflow/status/SUDEEPBOTS/module-renamer-bot/docker.yml?branch=dev&style=for-the-badge&logo=docker&logoColor=white&label=Docker" alt="Docker"></a>
 </p>
 
 <p>

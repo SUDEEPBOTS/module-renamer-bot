@@ -70,7 +70,7 @@ func (b *Bot) handleLogCommand(msg *tgbotapi.Message, args string) {
 }
 
 func (b *Bot) sendAdminPanel(chatID int64) {
-	title := renamer.ToBoldSerif("Admin Control Panel")
+	title := renamer.ToSmallCaps("Admin Control Panel")
 	text := fmt.Sprintf(
 		"<blockquote>👑 <b>%s</b></blockquote>\n\n"+
 			"<blockquote>Welcome to the Sudo Management Deck.</blockquote>\n\n"+

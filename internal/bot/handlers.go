@@ -182,19 +182,33 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 
 	isSudo := b.cfg.IsSudo(userID)
 
+	header := renamer.ToSmallCaps("SUDEEPBOTS MODULE RENAMER")
 	greeting := fmt.Sprintf(
 		"<blockquote>⚡ <b>%s</b></blockquote>\n\n"+
-			"<blockquote>👋 <b>Hello %s!</b>\n"+
-			"Welcome to the enterprise codebase refactoring & rebranding automation engine built in <b>Golang</b>.</blockquote>\n\n"+
-			"<blockquote expandable><b>Engine Specifications:</b>\n"+
-			"• 🔄 <b>Universal Scanning:</b> Python, Go, JS, TS, Rust, C++, Java, configs\n"+
-			"• 🔡 <b>Unicode Font Bypasser:</b> Decodes & renames stylized fonts (e.g. ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢)\n"+
-			"• 🔍 <b>Author Scanner:</b> Deep-scan & interactive replace of author handles\n"+
-			"• 🔗 <b>Interactive Link Scanner:</b> Paginated detection & replacement of t.me links\n"+
-			"• 📁 <b>Bottom-Up Restructuring:</b> Deepest-level file and directory path renames\n"+
-			"• 📦 <b>Flexible Export:</b> Direct .ZIP document or automated GitHub push!</blockquote>\n\n"+
-			"<blockquote>👇 <i>Paste a public GitHub link or send a .zip archive to begin!</i></blockquote>",
-		renamer.ToBoldSerif("SUDEEPBOTS Module Renamer"),
+			"<blockquote>👋 <b>ʜᴇʟʟᴏ %s!</b>\n"+
+			"ᴡᴇʟᴄᴏᴍᴇ ᴛᴏ ᴛʜᴇ ᴇɴᴛᴇʀᴘʀɪsᴇ ᴄᴏᴅᴇʙᴀsᴇ ʀᴇғᴀᴄᴛᴏʀɪɴɢ & ʀᴇʙʀᴀɴᴅɪɴɢ ᴀᴜᴛᴏᴍᴀᴛɪᴏɴ ᴇɴɢɪɴᴇ.</blockquote>\n\n"+
+			"<blockquote expandable><b>❏ sᴜᴘᴘᴏʀᴛᴇᴅ ᴍᴏᴅᴜʟᴇs & ʙᴏᴛs:</b>\n"+
+			"❏ ᴍᴜsɪᴄ ʙᴏᴛs\n"+
+			"❏ ᴀɪ & ᴄʜᴀᴛ ʙᴏᴛs\n"+
+			"❏ ᴠᴏɪᴄᴇ ᴄʜᴀᴛ / ᴠᴄ ʙᴏᴛs\n"+
+			"❏ ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ ʙᴏᴛs\n"+
+			"❏ sᴇᴄᴜʀɪᴛʏ & ᴀɴᴛɪ-ᴅᴅᴏs ʙᴏᴛs\n"+
+			"❏ ᴠᴇʀɪғɪᴄᴀᴛɪᴏɴ & ᴀᴜᴛʜᴇɴᴛɪᴄᴀᴛɪᴏɴ ʙᴏᴛs\n"+
+			"❏ ᴛɪᴄᴋᴇᴛ & sᴜᴘᴘᴏʀᴛ ʙᴏᴛs\n"+
+			"❏ ʙʀᴏᴀᴅᴄᴀsᴛ & ᴀᴜᴛᴏ-ғᴏʀᴡᴀʀᴅ ʙᴏᴛs\n"+
+			"❏ ᴀᴜᴛᴏᴍᴀᴛɪᴏɴ & ᴜᴛɪʟɪᴛʏ ʙᴏᴛs\n"+
+			"❏ ғᴜɴ & ᴇɴᴛᴇʀᴛᴀɪɴᴍᴇɴᴛ ʙᴏᴛs\n"+
+			"❏ ғɪʟᴇ & ᴍᴇᴅɪᴀ ʙᴏᴛs\n"+
+			"❏ sᴇᴀʀᴄʜ & ᴅᴏᴡɴʟᴏᴀᴅᴇʀ ʙᴏᴛs\n"+
+			"❏ ᴘᴀʏᴍᴇɴᴛ & sᴜʙsᴄʀɪᴘᴛɪᴏɴ ʙᴏᴛs\n"+
+			"❏ ᴜsᴇʀʙᴏᴛs & ᴛᴇʟᴇɢʀᴀᴍ ᴛᴏᴏʟs\n"+
+			"❏ ᴄʟᴏɴᴇ ʙᴏᴛs & ᴄᴜsᴛᴏᴍ sʏsᴛᴇᴍs\n"+
+			"❏ ᴀɪ ᴀssɪsᴛᴀɴᴛs & ᴀᴘɪ ɪɴᴛᴇɢʀᴀᴛɪᴏɴ\n"+
+			"❏ ʀᴇsᴛ ᴀᴘɪs & ʙᴀᴄᴋᴇɴᴅ sʏsᴛᴇᴍs\n"+
+			"❏ ᴡᴇʙ ᴅᴀsʜʙᴏᴀʀᴅs & ᴀᴅᴍɪɴ ᴘᴀɴᴇʟs\n"+
+			"❏ ᴄᴜsᴛᴏᴍ ᴀᴘᴋ / ᴀɴᴅʀᴏɪᴅ</blockquote>\n\n"+
+			"<blockquote>👇 <i>ᴘᴀsᴛᴇ ᴀ ɢɪᴛʜᴜʙ ʀᴇᴘᴏsɪᴛᴏʀʏ ʟɪɴᴋ ᴏʀ ᴜᴘʟᴏᴀᴅ ᴀ .ᴢɪᴘ ᴀʀᴄʜɪᴠᴇ ᴛᴏ ʙᴇɢɪɴ!</i></blockquote>",
+		header,
 		firstName,
 	)
 
@@ -219,47 +233,43 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 
 func (b *Bot) sendHelpPage(chatID int64, messageID int, page int) {
 	var body string
-	title := renamer.ToBoldSerif(fmt.Sprintf("Help & Documentation [Page %d/3]", page))
+	title := renamer.ToSmallCaps(fmt.Sprintf("Help & Documentation [Page %d/3]", page))
 
 	switch page {
 	case 1:
 		body = fmt.Sprintf(
 			"<blockquote>📖 <b>%s</b></blockquote>\n\n"+
-				"<blockquote><b>1. Getting Started</b>\n"+
-				"To rebrand an entire project:\n"+
-				"• Send a public GitHub URL (e.g. <code>https://github.com/owner/repo</code>)\n"+
-				"• OR upload a <code>.zip</code> source archive directly to this chat.\n"+
-				"• Enter the exact <b>Old Module Name</b> (e.g. <code>Yukki</code>).\n"+
-				"• Enter your desired <b>New Module Name</b> (e.g. <code>Pulse</code>).\n"+
-				"• Use <code>/author &lt;name&gt;</code> to scan and replace author names.\n"+
-				"• Use <code>/links</code> to discover and replace Telegram links interactively.</blockquote>\n\n"+
-				"<blockquote expandable><b>Supported Language Syntax:</b>\n"+
-				"Python (.py), Golang (.go), JavaScript/TypeScript (.js, .ts), Rust (.rs), C/C++ (.c, .cpp, .h), Java (.java), Shell (.sh), Markdown (.md), JSON, YAML, Dockerfile, Makefile, and Environment (.env) files.</blockquote>",
+				"<blockquote><b>❏ ɢᴇᴛᴛɪɴɢ sᴛᴀʀᴛᴇᴅ:</b>\n"+
+				"❏ sᴇɴᴅ ᴀ ᴘᴜʙʟɪᴄ ɢɪᴛʜᴜʙ ᴜʀʟ ᴏʀ ᴜᴘʟᴏᴀᴅ ᴀ .ᴢɪᴘ ᴀʀᴄʜɪᴠᴇ.\n"+
+				"❏ ᴇɴᴛᴇʀ ᴛʜᴇ ᴇxᴀᴄᴛ ᴏʟᴅ ᴍᴏᴅᴜʟᴇ ɴᴀᴍᴇ (ᴇ.ɢ. <code>ʏᴜᴋᴋɪ</code>).\n"+
+				"❏ ᴇɴᴛᴇʀ ʏᴏᴜʀ ɴᴇᴡ ᴍᴏᴅᴜʟᴇ ɴᴀᴍᴇ (ᴇ.ɢ. <code>ᴘᴜʟsᴇ</code>).\n"+
+				"❏ ᴜsᴇ <code>/author &lt;name&gt;</code> ᴛᴏ sᴄᴀɴ & ʀᴇᴘʟᴀᴄᴇ ᴀᴜᴛʜᴏʀ ɴᴀᴍᴇs.\n"+
+				"❏ ᴜsᴇ <code>/links</code> ᴛᴏ ᴅɪsᴄᴏᴠᴇʀ & ʀᴇᴘʟᴀᴄᴇ ᴛᴇʟᴇɢʀᴀᴍ ʟɪɴᴋs.</blockquote>\n\n"+
+				"<blockquote expandable><b>❏ sᴜᴘᴘᴏʀᴛᴇᴅ ʟᴀɴɢᴜᴀɢᴇs & ғɪʟᴇs:</b>\n"+
+				"ᴘʏᴛʜᴏɴ (.ᴘʏ), ɢᴏʟᴀɴɢ (.ɢᴏ), ᴊᴀᴠᴀsᴄʀɪᴘᴛ / ᴛʏᴘᴇsᴄʀɪᴘᴛ (.ᴊs, .ᴛs), ʀᴜsᴛ (.ʀs), ᴄ / ᴄ++ (.ᴄ, .ᴄᴘᴘ, .ʜ), ᴊᴀᴠᴀ (.ᴊᴀᴠᴀ), sʜᴇʟʟ (.sʜ), ᴍᴀʀᴋᴅᴏᴡɴ (.ᴍᴅ), ᴊsᴏɴ, ʏᴀᴍʟ, ᴅᴏᴄᴋᴇʀғɪʟᴇ, ᴍᴀᴋᴇғɪʟᴇ, ᴀɴᴅ .ᴇɴᴠ.</blockquote>",
 			title,
 		)
 	case 2:
 		body = fmt.Sprintf(
 			"<blockquote>🔡 <b>%s</b></blockquote>\n\n"+
-				"<blockquote><b>2. Unicode & Fancy Font Recognition</b>\n"+
-				"Many repositories use aesthetic fonts in their README or code (e.g. ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢, 𝒀𝒖𝒌𝒌𝒊, 𝐒υᴘᴘσꝛᴛ).\n"+
-				"Our engine maps all mathematical, small-cap, and stylized homoglyphs back to standard characters during matching.</blockquote>\n\n"+
-				"<blockquote expandable><b>Delivery Options:</b>\n"+
-				"• <b>📦 Export as ZIP:</b> Instantly compresses the cleaned codebase and uploads it as a Telegram document.\n"+
-				"• <b>🚀 Push to GitHub:</b> Connects to your GitHub account and pushes directly to a fresh or existing repository!</blockquote>",
+				"<blockquote><b>❏ ᴜɴɪᴄᴏᴅᴇ ғᴏɴᴛ ʀᴇᴄᴏɢɴɪᴛɪᴏɴ:</b>\n"+
+				"❏ ᴀᴜᴛᴏᴍᴀᴛɪᴄᴀʟʟʏ ᴅᴇᴄᴏᴅᴇs & ʀᴇɴᴀᴍᴇs sᴛʏʟɪᴢᴇᴅ ʟᴏᴏᴋᴀʟɪᴋᴇs (ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢, 𝒀𝒖𝒌𝒌𝒊).\n"+
+				"❏ ɴᴏʀᴍᴀʟɪᴢᴇs 250+ ᴍᴀᴛʜᴇᴍᴀᴛɪᴄᴀʟ, sᴍᴀʟʟ-ᴄᴀᴘ, ᴀɴᴅ ʜᴏᴍᴏɢʟʏᴘʜ ʀᴜɴᴇs.</blockquote>\n\n"+
+				"<blockquote expandable><b>❏ ᴅᴇʟɪᴠᴇʀʏ ᴘɪᴘᴇʟɪɴᴇs:</b>\n"+
+				"❏ <b>ᴇxᴘᴏʀᴛ ᴀs ᴢɪᴘ:</b> ɪɴsᴛᴀɴᴛʟʏ ᴄᴏᴍᴘʀᴇssᴇs ᴀɴᴅ ᴜᴘʟᴏᴀᴅs ᴀ .ᴢɪᴘ ᴅᴏᴄᴜᴍᴇɴᴛ.\n"+
+				"❏ <b>ᴘᴜsʜ ᴛᴏ ɢɪᴛʜᴜʙ:</b> ᴀᴜᴛʜᴇɴᴛɪᴄᴀᴛᴇs ᴀɴᴅ ᴘᴜsʜᴇs ᴅɪʀᴇᴄᴛʟʏ ᴛᴏ ʏᴏᴜʀ ɢɪᴛʜᴜʙ ʀᴇᴘᴏ.</blockquote>",
 			title,
 		)
 	case 3:
 		body = fmt.Sprintf(
 			"<blockquote>👑 <b>%s</b></blockquote>\n\n"+
-				"<blockquote><b>3. Sudo & Cloud Operations</b>\n"+
-				"Administrators have access to real-time telemetry and management tools:</blockquote>\n\n"+
-				"<blockquote expandable><b>Sudo Commands:</b>\n"+
-				"• <code>/stats</code> — Real-time memory, goroutines, and renames\n"+
-				"• <code>/log on</code> or <code>/log off</code> — Toggle console & channel logging\n"+
-				"• <code>/broadcast &lt;text&gt;</code> — Send global broadcast to all users\n"+
-				"• <code>/gban &lt;user_id&gt; [reason]</code> — Blacklist spam user\n"+
-				"• <code>/ungban &lt;user_id&gt;</code> — Remove user blacklist\n"+
-				"• <code>/users</code> — Total registered user count</blockquote>",
+				"<blockquote><b>❏ sᴜᴅᴏ & ᴄʟᴏᴜᴅ ᴏᴘᴇʀᴀᴛɪᴏɴs:</b>\n"+
+				"❏ <code>/stats</code> — ʀᴇᴀʟ-ᴛɪᴍᴇ ᴍᴇᴍᴏʀʏ, ɢᴏʀᴏᴜᴛɪɴᴇs, ʀᴇɴᴀᴍᴇs\n"+
+				"❏ <code>/log on</code> / <code>/log off</code> — ᴛᴏɢɢʟᴇ ᴄʟᴇᴀɴ ᴇᴠᴇɴᴛ ʟᴏɢɢᴇʀ\n"+
+				"❏ <code>/broadcast &lt;text&gt;</code> — sᴇɴᴅ ɢʟᴏʙᴀʟ ʙʀᴏᴀᴅᴄᴀsᴛ\n"+
+				"❏ <code>/gban &lt;user_id&gt;</code> — ʙʟᴀᴄᴋʟɪsᴛ sᴘᴀᴍ ᴜsᴇʀ\n"+
+				"❏ <code>/ungban &lt;user_id&gt;</code> — ʀᴇᴍᴏᴠᴇ ʙʟᴀᴄᴋʟɪsᴛ\n"+
+				"❏ <code>/users</code> — ᴛᴏᴛᴀʟ ʀᴇɢɪsᴛᴇʀᴇᴅ ᴜsᴇʀ ᴄᴏᴜɴᴛ</blockquote>",
 			title,
 		)
 	}
@@ -311,7 +321,7 @@ func (b *Bot) promptRename(chatID int64, userID int64, username string) {
 		"<blockquote>🚀 <b>%s</b></blockquote>\n\n"+
 			"<blockquote>Please send the <b>GitHub Repository URL</b> (e.g. <code>https://github.com/group-66666/YukkiMusic-Go</code>) "+
 			"or upload a <b>.zip</b> project archive to begin.</blockquote>",
-		renamer.ToBoldSerif("Start New Rebranding Task"),
+		renamer.ToSmallCaps("Start New Rebranding Task"),
 	)
 
 	reply := tgbotapi.NewMessage(chatID, text)
@@ -337,7 +347,7 @@ func (b *Bot) promptAuthor(chatID int64, userID int64, username string, targetNa
 			"<blockquote>🔍 <b>%s</b></blockquote>\n\n"+
 				"<blockquote>Please reply with the <b>author name, handle, or identifier</b> to scan for in the codebase:\n"+
 				"<i>Example:</i> <code>Rahul</code> or stylized <code>𝐑ᴀʜυʟ</code></blockquote>",
-			renamer.ToBoldSerif("Scan Author / Custom Identifier"),
+			renamer.ToSmallCaps("Scan Author / Custom Identifier"),
 		)
 		reply := tgbotapi.NewMessage(chatID, text)
 		reply.ParseMode = "HTML"
@@ -384,7 +394,7 @@ func (b *Bot) executeAuthorScan(chatID int64, session *SessionState, targetName 
 				"<blockquote>• <b>Target Query:</b> <code>%s</code>\n"+
 				"• <b>Matches Found:</b> <code>0</code> occurrences\n\n"+
 				"No occurrences of this identifier were detected across the codebase.</blockquote>",
-			renamer.ToBoldSerif("Scan Telemetry"),
+			renamer.ToSmallCaps("Scan Telemetry"),
 			targetName,
 		)
 		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
@@ -411,7 +421,7 @@ func (b *Bot) executeAuthorScan(chatID int64, session *SessionState, targetName 
 			"• <b>Affected Files:</b> <code>%d</code> files</blockquote>\n\n"+
 			"<blockquote expandable><b>File Locations:</b>\n%s</blockquote>\n\n"+
 			"<blockquote>Do you wish to replace all occurrences across the codebase?</blockquote>",
-		renamer.ToBoldSerif("Author Occurrences Detected"),
+		renamer.ToSmallCaps("Author Occurrences Detected"),
 		targetName,
 		report.TotalHits,
 		report.FilesCount,
@@ -442,7 +452,7 @@ func (b *Bot) promptLinks(chatID int64, userID int64, username string) {
 		text := fmt.Sprintf(
 			"<blockquote>🔗 <b>%s</b></blockquote>\n\n"+
 				"<blockquote>Please send the <b>GitHub Repository URL</b> or upload a <b>.zip archive</b> first to discover and replace links across the codebase.</blockquote>",
-			renamer.ToBoldSerif("Scan Repository Links"),
+			renamer.ToSmallCaps("Scan Repository Links"),
 		)
 		reply := tgbotapi.NewMessage(chatID, text)
 		reply.ParseMode = "HTML"
@@ -469,7 +479,7 @@ func (b *Bot) executeLinkScan(chatID int64, session *SessionState) {
 		text := fmt.Sprintf(
 			"<blockquote>🔗 <b>%s</b></blockquote>\n\n"+
 				"<blockquote>No channel links, Telegram URLs, or web endpoints were discovered in this repository.</blockquote>",
-			renamer.ToBoldSerif("Link Scan Complete"),
+			renamer.ToSmallCaps("Link Scan Complete"),
 		)
 		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
 		edit.ParseMode = "HTML"
@@ -487,7 +497,7 @@ func (b *Bot) executeLinkScan(chatID int64, session *SessionState) {
 			"• <b>Unique Links Found:</b> <code>%d</code>\n"+
 			"• <b>Total Link Occurrences:</b> <code>%d</code></blockquote>\n\n"+
 			"<blockquote>👇 <i>Click any link in the interactive list below to replace it across the entire codebase:</i></blockquote>",
-		renamer.ToBoldSerif("Repository Links Telemetry"),
+		renamer.ToSmallCaps("Repository Links Telemetry"),
 		len(report.Links),
 		report.TotalFound,
 	)
@@ -722,7 +732,7 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 				"• <b>Files Modified:</b> <code>%d</code>\n"+
 				"%s</blockquote>\n\n"+
 				"<blockquote>📦 <b>Select an action below:</b></blockquote>",
-			renamer.ToBoldSerif("Link Replacement Completed"),
+			renamer.ToSmallCaps("Link Replacement Completed"),
 			session.SelectedLink,
 			newLink,
 			repCount,
@@ -779,7 +789,7 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 				"• <b>Paths Renamed:</b> <code>%d</code>\n"+
 				"%s</blockquote>\n\n"+
 				"<blockquote>📦 <b>Select your delivery method below:</b></blockquote>",
-			renamer.ToBoldSerif("Author Replacement Completed"),
+			renamer.ToSmallCaps("Author Replacement Completed"),
 			session.AuthorQuery,
 			session.NewName,
 			report.ReplacementsCount,
@@ -853,7 +863,7 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 				"• <b>Paths/Directories Renamed:</b> <code>%d</code>\n"+
 				"%s</blockquote>\n\n"+
 				"<blockquote>📦 <b>Select your delivery method below:</b></blockquote>",
-			renamer.ToBoldSerif("Renaming Completed Successfully"),
+			renamer.ToSmallCaps("Renaming Completed Successfully"),
 			session.OldName,
 			session.NewName,
 			report.FilesScanned,
@@ -915,7 +925,7 @@ func (b *Bot) executeGitHubPush(chatID int64, session *SessionState, token strin
 		"<blockquote>🚀 <b>%s</b></blockquote>\n\n"+
 			"<blockquote>Your rebranded repository has been pushed cleanly to GitHub!\n\n"+
 			"🔗 <b>Repository:</b> <a href=\"%s\">%s</a></blockquote>",
-		renamer.ToBoldSerif("Pushed to GitHub Successfully"),
+		renamer.ToSmallCaps("Pushed to GitHub Successfully"),
 		session.TargetRepo,
 		session.TargetRepo,
 	)
