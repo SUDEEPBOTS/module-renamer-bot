@@ -122,3 +122,38 @@ func TestFindOccurrencesAndSyntax(t *testing.T) {
 		t.Errorf("Expected 0 syntax warnings, got: %v", syntaxRes.Warnings)
 	}
 }
+
+func TestScanAndReplaceLinks(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "links_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	readme := filepath.Join(tempDir, "README.md")
+	_ = os.WriteFile(readme, []byte("Join us on https://t.me/OldYukkiChannel or t.me/OldYukkiSupport"), 0644)
+
+	engine := NewEngine()
+	report, err := engine.ScanLinks(tempDir)
+	if err != nil {
+		t.Fatalf("ScanLinks failed: %v", err)
+	}
+
+	if len(report.Links) < 2 {
+		t.Errorf("Expected at least 2 discovered links, got: %d", len(report.Links))
+	}
+
+	filesMod, reps, err := engine.ReplaceLink(tempDir, "https://t.me/OldYukkiChannel", "https://t.me/NewPulseChannel")
+	if err != nil {
+		t.Fatalf("ReplaceLink failed: %v", err)
+	}
+
+	if filesMod != 1 || reps < 1 {
+		t.Errorf("Expected 1 file modified and >= 1 replacement, got %d files, %d reps", filesMod, reps)
+	}
+
+	data, _ := os.ReadFile(readme)
+	if !strings.Contains(string(data), "https://t.me/NewPulseChannel") {
+		t.Errorf("Expected replaced link in README.md, got: %s", string(data))
+	}
+}

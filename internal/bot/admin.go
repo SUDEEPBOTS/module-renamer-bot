@@ -96,6 +96,17 @@ func (b *Bot) sendStats(chatID int64) {
 	stats := utils.GetSystemStats()
 
 	text := stats.FormatStatsMessage(totalUsers, totalRenames)
+
+	if b.cfg.StatsImgURL != "" {
+		photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(b.cfg.StatsImgURL))
+		photo.Caption = text
+		photo.ParseMode = "HTML"
+		_, err := b.api.Send(photo)
+		if err == nil {
+			return
+		}
+	}
+
 	reply := tgbotapi.NewMessage(chatID, text)
 	reply.ParseMode = "HTML"
 	_, _ = b.api.Send(reply)

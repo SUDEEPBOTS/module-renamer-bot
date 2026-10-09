@@ -60,6 +60,83 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 		return
 	}
 
+	if data == "cmd_links_scan" {
+		b.promptLinks(chatID, userID, query.From.UserName)
+		return
+	}
+
+	if strings.HasPrefix(data, "link_sel:") {
+		idxStr := strings.TrimPrefix(data, "link_sel:")
+		idx, err := strconv.Atoi(idxStr)
+		if err != nil {
+			return
+		}
+
+		session := b.sm.Get(userID)
+		if session == nil || idx < 0 || idx >= len(session.DiscoveredLinks) {
+			reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Link selection expired or not found. Use /links to rescan.</i></blockquote>")
+			reply.ParseMode = "HTML"
+			_, _ = b.api.Send(reply)
+			return
+		}
+
+		targetLink := session.DiscoveredLinks[idx]
+		session.SelectedLink = targetLink.URL
+		session.Step = "AWAITING_LINK_REPLACEMENT"
+
+		promptText := fmt.Sprintf(
+			"<blockquote>🔗 <b>%s</b></blockquote>\n\n"+
+				"<blockquote>• <b>Original Link:</b> <code>%s</code>\n"+
+				"• <b>Occurrences:</b> <code>%d</code> in codebase</blockquote>\n\n"+
+				"<blockquote>Please reply with the <b>New Replacement Link / URL</b>:\n"+
+				"<i>Example:</i> <code>https://t.me/YourChannel</code> or <code>t.me/YourBot</code></blockquote>",
+			renamer.ToBoldSerif("Replace Selected Link"),
+			targetLink.URL,
+			targetLink.Count,
+		)
+
+		edit := tgbotapi.NewEditMessageText(chatID, messageID, promptText)
+		edit.ParseMode = "HTML"
+		_, _ = b.api.Send(edit)
+		return
+	}
+
+	if strings.HasPrefix(data, "link_page:") {
+		pageNum, err := strconv.Atoi(strings.TrimPrefix(data, "link_page:"))
+		if err != nil || pageNum < 1 {
+			pageNum = 1
+		}
+		session := b.sm.Get(userID)
+		if session == nil || len(session.DiscoveredLinks) == 0 {
+			reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Link list expired. Use /links to rescan.</i></blockquote>")
+			reply.ParseMode = "HTML"
+			_, _ = b.api.Send(reply)
+			return
+		}
+
+		session.LinkPage = pageNum
+		totalPages := (len(session.DiscoveredLinks) + 4) / 5
+		if pageNum > totalPages {
+			pageNum = totalPages
+		}
+
+		text := fmt.Sprintf(
+			"<blockquote>🔗 <b>%s</b></blockquote>\n\n"+
+				"<blockquote><b>Discovered Telemetry:</b>\n"+
+				"• <b>Unique Links Found:</b> <code>%d</code></blockquote>\n\n"+
+				"<blockquote>👇 <i>Click any link in the interactive list below to replace it across the entire codebase:</i></blockquote>",
+			renamer.ToBoldSerif(fmt.Sprintf("Repository Links [Page %d/%d]", pageNum, totalPages)),
+			len(session.DiscoveredLinks),
+		)
+
+		edit := tgbotapi.NewEditMessageText(chatID, messageID, text)
+		edit.ParseMode = "HTML"
+		markup := MakeLinksPaginationKeyboard(session.DiscoveredLinks, pageNum, totalPages, session.ID)
+		edit.ReplyMarkup = &markup
+		_, _ = b.api.Send(edit)
+		return
+	}
+
 	if strings.HasPrefix(data, "author_replace:") {
 		session := b.sm.Get(userID)
 		if session == nil {
@@ -114,7 +191,13 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 			edit.ParseMode = "HTML"
 			markup := MakeAdminPanelKeyboard(logger.IsEnabled())
 			edit.ReplyMarkup = &markup
-			_, _ = b.api.Send(edit)
+			_, err := b.api.Send(edit)
+			if err != nil {
+				editCaption := tgbotapi.NewEditMessageCaption(chatID, messageID, stats.FormatStatsMessage(totalUsers, totalRenames))
+				editCaption.ParseMode = "HTML"
+				editCaption.ReplyMarkup = &markup
+				_, _ = b.api.Send(editCaption)
+			}
 
 		case "admin_users":
 			count, _ := b.db.CountUsers()
@@ -142,6 +225,7 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 	}
 
 	if data == "back_start" {
+		_, _ = b.api.Request(tgbotapi.NewDeleteMessage(chatID, messageID))
 		b.handleStart(query.Message)
 		return
 	}
@@ -179,6 +263,9 @@ func (b *Bot) handleExportZip(chatID int64, messageID int, userID int64) {
 	_, _ = b.api.Send(edit)
 
 	zipName := fmt.Sprintf("%s_rebranded.zip", session.NewName)
+	if zipName == "_rebranded.zip" {
+		zipName = "rebranded_project.zip"
+	}
 	zipPath := filepath.Join(b.cfg.WorkDir, zipName)
 
 	err := vcs.CreateZip(session.LocalDir, zipPath, renamer.DefaultIgnoredDirs)
@@ -191,6 +278,9 @@ func (b *Bot) handleExportZip(chatID int64, messageID int, userID int64) {
 	oldLabel := session.OldName
 	if oldLabel == "" {
 		oldLabel = session.AuthorQuery
+	}
+	if oldLabel == "" {
+		oldLabel = session.SelectedLink
 	}
 
 	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(zipPath))

@@ -1,10 +1,12 @@
 package bot
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,18 +18,21 @@ import (
 )
 
 type SessionState struct {
-	ID          string
-	UserID      int64
-	Username    string
-	Step        string
-	RepoURL     string
-	LocalDir    string
-	OldName     string
-	NewName     string
-	ZipPath     string
-	TargetRepo  string
-	Token       string
-	AuthorQuery string
+	ID              string
+	UserID          int64
+	Username        string
+	Step            string
+	RepoURL         string
+	LocalDir        string
+	OldName         string
+	NewName         string
+	ZipPath         string
+	TargetRepo      string
+	Token           string
+	AuthorQuery     string
+	DiscoveredLinks []renamer.DiscoveredLink
+	SelectedLink    string
+	LinkPage        int
 }
 
 type SessionManager struct {
@@ -65,6 +70,26 @@ func (sm *SessionManager) Clear(userID int64) {
 	}
 }
 
+type reactionItem struct {
+	Type  string `json:"type"`
+	Emoji string `json:"emoji"`
+}
+
+func (b *Bot) ReactToMessage(chatID int64, messageID int, emoji string) {
+	reactions := []reactionItem{{Type: "emoji", Emoji: emoji}}
+	data, err := json.Marshal(reactions)
+	if err != nil {
+		return
+	}
+
+	params := tgbotapi.Params{
+		"chat_id":    strconv.FormatInt(chatID, 10),
+		"message_id": strconv.Itoa(messageID),
+		"reaction":   string(data),
+	}
+	_, _ = b.api.MakeRequest("setMessageReaction", params)
+}
+
 func (b *Bot) HandleMessage(msg *tgbotapi.Message) {
 	if msg == nil || msg.From == nil {
 		return
@@ -90,6 +115,7 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) {
 	if msg.IsCommand() {
 		switch msg.Command() {
 		case "start":
+			b.ReactToMessage(msg.Chat.ID, msg.MessageID, "⚡")
 			b.handleStart(msg)
 			return
 		case "help":
@@ -101,6 +127,9 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) {
 		case "author", "findname", "scan":
 			args := strings.TrimSpace(msg.CommandArguments())
 			b.promptAuthor(msg.Chat.ID, userID, msg.From.UserName, args)
+			return
+		case "links", "scanlinks", "urls":
+			b.promptLinks(msg.Chat.ID, userID, msg.From.UserName)
 			return
 		case "cancel":
 			b.sm.Clear(userID)
@@ -135,9 +164,23 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleStart(msg *tgbotapi.Message) {
-	logger.LogUserStart(msg.From.ID, msg.From.UserName, msg.From.FirstName)
+	var userID int64
+	var firstName string
+	var userName string
 
-	isSudo := b.cfg.IsSudo(msg.From.ID)
+	if msg.From != nil {
+		userID = msg.From.ID
+		firstName = msg.From.FirstName
+		userName = msg.From.UserName
+	} else {
+		userID = msg.Chat.ID
+		firstName = msg.Chat.FirstName
+		userName = msg.Chat.UserName
+	}
+
+	logger.LogUserStart(userID, userName, firstName)
+
+	isSudo := b.cfg.IsSudo(userID)
 
 	greeting := fmt.Sprintf(
 		"<blockquote>⚡ <b>%s</b></blockquote>\n\n"+
@@ -146,17 +189,31 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 			"<blockquote expandable><b>Engine Specifications:</b>\n"+
 			"• 🔄 <b>Universal Scanning:</b> Python, Go, JS, TS, Rust, C++, Java, configs\n"+
 			"• 🔡 <b>Unicode Font Bypasser:</b> Decodes & renames stylized fonts (e.g. ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢)\n"+
-			"• 🔍 <b>Author & Identifier Scanner:</b> Detects author names across all formats\n"+
+			"• 🔍 <b>Author Scanner:</b> Deep-scan & interactive replace of author handles\n"+
+			"• 🔗 <b>Interactive Link Scanner:</b> Paginated detection & replacement of t.me links\n"+
 			"• 📁 <b>Bottom-Up Restructuring:</b> Deepest-level file and directory path renames\n"+
 			"• 📦 <b>Flexible Export:</b> Direct .ZIP document or automated GitHub push!</blockquote>\n\n"+
 			"<blockquote>👇 <i>Paste a public GitHub link or send a .zip archive to begin!</i></blockquote>",
 		renamer.ToBoldSerif("SUDEEPBOTS Module Renamer"),
-		msg.From.FirstName,
+		firstName,
 	)
+
+	markup := MakeStartKeyboard(isSudo, b.cfg.OwnerUsername, b.cfg.RepoURL, b.cfg.SupportChat, b.cfg.FSubChannel)
+
+	if b.cfg.StartImgURL != "" {
+		photo := tgbotapi.NewPhoto(msg.Chat.ID, tgbotapi.FileURL(b.cfg.StartImgURL))
+		photo.Caption = greeting
+		photo.ParseMode = "HTML"
+		photo.ReplyMarkup = markup
+		_, err := b.api.Send(photo)
+		if err == nil {
+			return
+		}
+	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, greeting)
 	reply.ParseMode = "HTML"
-	reply.ReplyMarkup = MakeStartKeyboard(isSudo, b.cfg.OwnerUsername, b.cfg.RepoURL, b.cfg.SupportChat, b.cfg.FSubChannel)
+	reply.ReplyMarkup = markup
 	_, _ = b.api.Send(reply)
 }
 
@@ -174,7 +231,8 @@ func (b *Bot) sendHelpPage(chatID int64, messageID int, page int) {
 				"• OR upload a <code>.zip</code> source archive directly to this chat.\n"+
 				"• Enter the exact <b>Old Module Name</b> (e.g. <code>Yukki</code>).\n"+
 				"• Enter your desired <b>New Module Name</b> (e.g. <code>Pulse</code>).\n"+
-				"• Or scan/replace author names using <code>/author &lt;name&gt;</code>.</blockquote>\n\n"+
+				"• Use <code>/author &lt;name&gt;</code> to scan and replace author names.\n"+
+				"• Use <code>/links</code> to discover and replace Telegram links interactively.</blockquote>\n\n"+
 				"<blockquote expandable><b>Supported Language Syntax:</b>\n"+
 				"Python (.py), Golang (.go), JavaScript/TypeScript (.js, .ts), Rust (.rs), C/C++ (.c, .cpp, .h), Java (.java), Shell (.sh), Markdown (.md), JSON, YAML, Dockerfile, Makefile, and Environment (.env) files.</blockquote>",
 			title,
@@ -209,16 +267,34 @@ func (b *Bot) sendHelpPage(chatID int64, messageID int, page int) {
 	markup := MakeHelpKeyboard(page)
 
 	if messageID != 0 {
-		edit := tgbotapi.NewEditMessageText(chatID, messageID, body)
-		edit.ParseMode = "HTML"
-		edit.ReplyMarkup = &markup
-		_, _ = b.api.Send(edit)
-	} else {
-		msg := tgbotapi.NewMessage(chatID, body)
-		msg.ParseMode = "HTML"
-		msg.ReplyMarkup = markup
-		_, _ = b.api.Send(msg)
+		editCaption := tgbotapi.NewEditMessageCaption(chatID, messageID, body)
+		editCaption.ParseMode = "HTML"
+		editCaption.ReplyMarkup = &markup
+		_, err := b.api.Send(editCaption)
+		if err != nil {
+			editText := tgbotapi.NewEditMessageText(chatID, messageID, body)
+			editText.ParseMode = "HTML"
+			editText.ReplyMarkup = &markup
+			_, _ = b.api.Send(editText)
+		}
+		return
 	}
+
+	if b.cfg.HelpImgURL != "" {
+		photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(b.cfg.HelpImgURL))
+		photo.Caption = body
+		photo.ParseMode = "HTML"
+		photo.ReplyMarkup = markup
+		_, err := b.api.Send(photo)
+		if err == nil {
+			return
+		}
+	}
+
+	msg := tgbotapi.NewMessage(chatID, body)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = markup
+	_, _ = b.api.Send(msg)
 }
 
 func (b *Bot) promptRename(chatID int64, userID int64, username string) {
@@ -349,9 +425,84 @@ func (b *Bot) executeAuthorScan(chatID int64, session *SessionState, targetName 
 	_, _ = b.api.Send(edit)
 }
 
+func (b *Bot) promptLinks(chatID int64, userID int64, username string) {
+	session := b.sm.Get(userID)
+	if session == nil {
+		sessionID := fmt.Sprintf("sess_%d_%d", userID, time.Now().Unix())
+		session = &SessionState{
+			ID:       sessionID,
+			UserID:   userID,
+			Username: username,
+		}
+		b.sm.Set(userID, session)
+	}
+
+	if session.LocalDir == "" {
+		session.Step = "AWAITING_LINKS_SOURCE"
+		text := fmt.Sprintf(
+			"<blockquote>🔗 <b>%s</b></blockquote>\n\n"+
+				"<blockquote>Please send the <b>GitHub Repository URL</b> or upload a <b>.zip archive</b> first to discover and replace links across the codebase.</blockquote>",
+			renamer.ToBoldSerif("Scan Repository Links"),
+		)
+		reply := tgbotapi.NewMessage(chatID, text)
+		reply.ParseMode = "HTML"
+		_, _ = b.api.Send(reply)
+		return
+	}
+
+	b.executeLinkScan(chatID, session)
+}
+
+func (b *Bot) executeLinkScan(chatID int64, session *SessionState) {
+	statusMsg := tgbotapi.NewMessage(chatID, "<blockquote>🔍 <b>Scanning repository files for links, channels, and endpoints...</b></blockquote>")
+	statusMsg.ParseMode = "HTML"
+	sent, _ := b.api.Send(statusMsg)
+
+	engine := renamer.NewEngine()
+	report, err := engine.ScanLinks(session.LocalDir)
+	if err != nil {
+		b.sendAIErrorBlock(chatID, sent.MessageID, "Repository Link Scanning", err)
+		return
+	}
+
+	if len(report.Links) == 0 {
+		text := fmt.Sprintf(
+			"<blockquote>🔗 <b>%s</b></blockquote>\n\n"+
+				"<blockquote>No channel links, Telegram URLs, or web endpoints were discovered in this repository.</blockquote>",
+			renamer.ToBoldSerif("Link Scan Complete"),
+		)
+		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
+		edit.ParseMode = "HTML"
+		_, _ = b.api.Send(edit)
+		return
+	}
+
+	session.DiscoveredLinks = report.Links
+	session.LinkPage = 1
+	totalPages := (len(report.Links) + 4) / 5
+
+	text := fmt.Sprintf(
+		"<blockquote>🔗 <b>%s</b></blockquote>\n\n"+
+			"<blockquote><b>Discovered Telemetry:</b>\n"+
+			"• <b>Unique Links Found:</b> <code>%d</code>\n"+
+			"• <b>Total Link Occurrences:</b> <code>%d</code></blockquote>\n\n"+
+			"<blockquote>👇 <i>Click any link in the interactive list below to replace it across the entire codebase:</i></blockquote>",
+		renamer.ToBoldSerif("Repository Links Telemetry"),
+		len(report.Links),
+		report.TotalFound,
+	)
+
+	edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
+	edit.ParseMode = "HTML"
+	markup := MakeLinksPaginationKeyboard(report.Links, 1, totalPages, session.ID)
+	edit.ReplyMarkup = &markup
+	_, _ = b.api.Send(edit)
+}
+
 func (b *Bot) handleRepoLink(chatID int64, userID int64, username, repoURL string) {
 	existing := b.sm.Get(userID)
 	isAuthorScan := existing != nil && (existing.Step == "AWAITING_AUTHOR_SOURCE" || existing.AuthorQuery != "")
+	isLinksScan := existing != nil && existing.Step == "AWAITING_LINKS_SOURCE"
 	authorQuery := ""
 	if isAuthorScan && existing != nil {
 		authorQuery = existing.AuthorQuery
@@ -388,6 +539,12 @@ func (b *Bot) handleRepoLink(chatID int64, userID int64, username, repoURL strin
 		return
 	}
 
+	if isLinksScan {
+		_, _ = b.api.Request(tgbotapi.NewDeleteMessage(chatID, sent.MessageID))
+		b.executeLinkScan(chatID, session)
+		return
+	}
+
 	session.Step = "AWAITING_OLD_NAME"
 
 	text := "<blockquote>✅ <b>Repository cloned successfully!</b></blockquote>\n\n" +
@@ -413,6 +570,7 @@ func (b *Bot) handleZipUpload(msg *tgbotapi.Message) {
 
 	existing := b.sm.Get(userID)
 	isAuthorScan := existing != nil && (existing.Step == "AWAITING_AUTHOR_SOURCE" || existing.AuthorQuery != "")
+	isLinksScan := existing != nil && existing.Step == "AWAITING_LINKS_SOURCE"
 	authorQuery := ""
 	if isAuthorScan && existing != nil {
 		authorQuery = existing.AuthorQuery
@@ -476,6 +634,12 @@ func (b *Bot) handleZipUpload(msg *tgbotapi.Message) {
 		return
 	}
 
+	if isLinksScan {
+		_, _ = b.api.Request(tgbotapi.NewDeleteMessage(msg.Chat.ID, sent.MessageID))
+		b.executeLinkScan(msg.Chat.ID, session)
+		return
+	}
+
 	session.Step = "AWAITING_OLD_NAME"
 
 	text := "<blockquote>✅ <b>Archive extracted successfully!</b></blockquote>\n\n" +
@@ -512,6 +676,65 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 			reply.ParseMode = "HTML"
 			_, _ = b.api.Send(reply)
 		}
+
+	case "AWAITING_LINKS_SOURCE":
+		if strings.HasPrefix(text, "http://") || strings.HasPrefix(text, "https://") {
+			b.handleRepoLink(chatID, msg.From.ID, msg.From.UserName, text)
+		} else {
+			reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Please provide a valid GitHub repository link or upload a .zip archive.</i></blockquote>")
+			reply.ParseMode = "HTML"
+			_, _ = b.api.Send(reply)
+		}
+
+	case "AWAITING_LINK_REPLACEMENT":
+		newLink := text
+		session.Step = "AWAITING_DELIVERY_CHOICE"
+
+		statusMsg := tgbotapi.NewMessage(chatID, "<blockquote>⚙️ <b>Replacing link across codebase and validating syntax...</b></blockquote>")
+		statusMsg.ParseMode = "HTML"
+		sent, _ := b.api.Send(statusMsg)
+
+		engine := renamer.NewEngine()
+		filesMod, repCount, err := engine.ReplaceLink(session.LocalDir, session.SelectedLink, newLink)
+		if err != nil {
+			logger.LogRenameFailure(session.UserID, session.Username, err)
+			b.sendAIErrorBlock(chatID, sent.MessageID, "Link Replacement Engine", err)
+			return
+		}
+
+		syntaxRes := renamer.VerifyDirectorySyntax(session.LocalDir)
+		var syntaxSummary string
+		if len(syntaxRes.Warnings) == 0 {
+			syntaxSummary = fmt.Sprintf("• <b>Syntax Integrity:</b> <code>100%% Valid (%d files checked)</code>", syntaxRes.Passed)
+		} else {
+			syntaxSummary = fmt.Sprintf("• <b>Syntax Integrity:</b> <code>%d passed, %d warnings</code>", syntaxRes.Passed, len(syntaxRes.Warnings))
+		}
+
+		_ = b.db.IncrementRenames()
+		logger.LogRenameSuccess(session.UserID, session.Username, session.SelectedLink, newLink, len(session.DiscoveredLinks), filesMod, repCount, 0)
+
+		resultText := fmt.Sprintf(
+			"<blockquote>🎉 <b>%s</b></blockquote>\n\n"+
+				"<blockquote><b>Link Replacement Telemetry:</b>\n"+
+				"• <b>Original Link:</b> <code>%s</code>\n"+
+				"• <b>New Link:</b> <code>%s</code>\n"+
+				"• <b>Occurrences Replaced:</b> <code>%d</code>\n"+
+				"• <b>Files Modified:</b> <code>%d</code>\n"+
+				"%s</blockquote>\n\n"+
+				"<blockquote>📦 <b>Select an action below:</b></blockquote>",
+			renamer.ToBoldSerif("Link Replacement Completed"),
+			session.SelectedLink,
+			newLink,
+			repCount,
+			filesMod,
+			syntaxSummary,
+		)
+
+		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, resultText)
+		edit.ParseMode = "HTML"
+		markup := MakePostLinkReplaceKeyboard(session.ID)
+		edit.ReplyMarkup = &markup
+		_, _ = b.api.Send(edit)
 
 	case "AWAITING_AUTHOR_REPLACEMENT":
 		session.NewName = text
@@ -675,6 +898,9 @@ func (b *Bot) executeGitHubPush(chatID int64, session *SessionState, token strin
 	oldLabel := session.OldName
 	if oldLabel == "" {
 		oldLabel = session.AuthorQuery
+	}
+	if oldLabel == "" {
+		oldLabel = session.SelectedLink
 	}
 	commitMsg := fmt.Sprintf("feat: rebrand %s to %s via SUDEEPBOTS Module Renamer", oldLabel, session.NewName)
 	err := vcs.PushToGitHub(session.LocalDir, session.TargetRepo, token, commitMsg)

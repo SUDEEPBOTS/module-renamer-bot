@@ -16,6 +16,7 @@ func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubCha
 	helpBtnText := renamer.ToBoldSerif("Help & Commands")
 	renameBtnText := renamer.ToBoldSerif("Rename Codebase")
 	authorBtnText := renamer.ToAestheticFancy("Scan Author")
+	linksBtnText := renamer.ToAestheticFancy("Scan Links")
 
 	ownerLink := "https://t.me/" + strings.TrimPrefix(ownerUsername, "@")
 	supportLink := "https://t.me/" + strings.TrimPrefix(supportChat, "@")
@@ -42,6 +43,7 @@ func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubCha
 	rows = append(rows, row3)
 
 	row4 := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("🔗 "+linksBtnText, "cmd_links_scan"),
 		tgbotapi.NewInlineKeyboardButtonData("📖 "+helpBtnText, "help_page_1"),
 	}
 	rows = append(rows, row4)
@@ -95,6 +97,74 @@ func MakeHelpKeyboard(page int) tgbotapi.InlineKeyboardMarkup {
 	}
 
 	return tgbotapi.NewInlineKeyboardMarkup(navRow, closeRow)
+}
+
+func MakeLinksPaginationKeyboard(links []renamer.DiscoveredLink, page int, totalPages int, sessionID string) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	perPage := 5
+	startIdx := (page - 1) * perPage
+	endIdx := startIdx + perPage
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if startIdx > len(links) {
+		startIdx = len(links)
+	}
+	if endIdx > len(links) {
+		endIdx = len(links)
+	}
+
+	for i := startIdx; i < endIdx; i++ {
+		link := links[i]
+		display := link.URL
+		if len(display) > 28 {
+			display = display[:25] + "..."
+		}
+		btnText := fmt.Sprintf("🔗 %s (%d)", display, link.Count)
+		btnData := fmt.Sprintf("link_sel:%d", link.Index)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(btnText, btnData),
+		))
+	}
+
+	var navRow []tgbotapi.InlineKeyboardButton
+	if page > 1 {
+		backText := renamer.ToAestheticFancy("Back")
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData("⬅️ "+backText, fmt.Sprintf("link_page:%d", page-1)))
+	}
+	navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(fmt.Sprintf("📄 %d/%d", page, totalPages), "noop"))
+	if page < totalPages {
+		nextText := renamer.ToAestheticFancy("Next")
+		navRow = append(navRow, tgbotapi.NewInlineKeyboardButtonData(nextText+" ➡️", fmt.Sprintf("link_page:%d", page+1)))
+	}
+	rows = append(rows, navRow)
+
+	cancelRow := tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel:"+sessionID),
+		tgbotapi.NewInlineKeyboardButtonData("🔙 "+renamer.ToBoldSerif("Main"), "back_start"),
+	)
+	rows = append(rows, cancelRow)
+
+	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+}
+
+func MakePostLinkReplaceKeyboard(sessionID string) tgbotapi.InlineKeyboardMarkup {
+	zipText := renamer.ToBoldSerif("Export ZIP")
+	gitText := renamer.ToBoldSerif("Push to GitHub")
+	moreLinksText := renamer.ToAestheticFancy("Scan More Links")
+	mainText := renamer.ToBoldSerif("Main Menu")
+
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("📦 "+zipText, "export_zip:"+sessionID),
+			tgbotapi.NewInlineKeyboardButtonData("🚀 "+gitText, "export_github:"+sessionID),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔗 "+moreLinksText, "cmd_links_scan"),
+			tgbotapi.NewInlineKeyboardButtonData("🔙 "+mainText, "back_start"),
+		),
+	)
 }
 
 func MakeDeliveryChoiceKeyboard(sessionID string) tgbotapi.InlineKeyboardMarkup {

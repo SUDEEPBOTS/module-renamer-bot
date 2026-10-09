@@ -20,6 +20,9 @@ type Config struct {
 	GitHubToken   string
 	WorkDir       string
 	LogChannel    int64
+	StartImgURL   string
+	StatsImgURL   string
+	HelpImgURL    string
 }
 
 func LoadConfig() *Config {
@@ -59,6 +62,9 @@ func LoadConfig() *Config {
 		GitHubToken:   getEnv("GITHUB_TOKEN", ""),
 		WorkDir:       workDir,
 		LogChannel:    logChannel,
+		StartImgURL:   getEnv("START_IMG", "https://yukiapi.site/file/zNsU7hDf"),
+		StatsImgURL:   getEnv("STATS_IMG", "https://yukiapi.site/file/3G26xQbs"),
+		HelpImgURL:    getEnv("HELP_IMG", "https://yukiapi.site/file/at2NPZeU"),
 	}
 }
 
