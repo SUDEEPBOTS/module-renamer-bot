@@ -25,7 +25,33 @@ type Config struct {
 	HelpImgURL    string
 }
 
+func loadDotEnv(path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			k := strings.TrimSpace(parts[0])
+			v := strings.TrimSpace(parts[1])
+			v = strings.Trim(v, `"'`)
+			if os.Getenv(k) == "" {
+				_ = os.Setenv(k, v)
+			}
+		}
+	}
+}
+
 func LoadConfig() *Config {
+	loadDotEnv(".env")
+	loadDotEnv("../.env")
+
 	ownerID, _ := strconv.ParseInt(getEnv("OWNER_ID", "0"), 10, 64)
 	fsubChatID, _ := strconv.ParseInt(getEnv("FSUB_CHAT_ID", "0"), 10, 64)
 	logChannel, _ := strconv.ParseInt(getEnv("LOG_CHANNEL", "0"), 10, 64)
