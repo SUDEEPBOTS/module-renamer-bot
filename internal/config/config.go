@@ -6,21 +6,22 @@ import (
 	"strings"
 )
 
-// Config holds the application configuration parameters.
 type Config struct {
-	BotToken     string
-	MongoURI     string
-	DatabaseName string
-	OwnerID      int64
-	SudoUsers    map[int64]bool
-	FSubChannel  string
-	FSubChatID   int64
-	GitHubToken  string
-	WorkDir      string
-	LogChannel   int64
+	BotToken      string
+	MongoURI      string
+	DatabaseName  string
+	OwnerID       int64
+	OwnerUsername string
+	RepoURL       string
+	SupportChat   string
+	SudoUsers     map[int64]bool
+	FSubChannel   string
+	FSubChatID    int64
+	GitHubToken   string
+	WorkDir       string
+	LogChannel    int64
 }
 
-// LoadConfig loads configuration from environment variables with safe defaults.
 func LoadConfig() *Config {
 	ownerID, _ := strconv.ParseInt(getEnv("OWNER_ID", "0"), 10, 64)
 	fsubChatID, _ := strconv.ParseInt(getEnv("FSUB_CHAT_ID", "0"), 10, 64)
@@ -45,20 +46,22 @@ func LoadConfig() *Config {
 	_ = os.MkdirAll(workDir, 0755)
 
 	return &Config{
-		BotToken:     getEnv("BOT_TOKEN", ""),
-		MongoURI:     getEnv("MONGO_URI", ""),
-		DatabaseName: getEnv("DATABASE_NAME", "renamer_bot"),
-		OwnerID:      ownerID,
-		SudoUsers:    sudoMap,
-		FSubChannel:  getEnv("FSUB_CHANNEL", "SUDEEPBOTS"),
-		FSubChatID:   fsubChatID,
-		GitHubToken:  getEnv("GITHUB_TOKEN", ""),
-		WorkDir:      workDir,
-		LogChannel:   logChannel,
+		BotToken:      getEnv("BOT_TOKEN", ""),
+		MongoURI:      getEnv("MONGO_URI", ""),
+		DatabaseName:  getEnv("DATABASE_NAME", "renamer_bot"),
+		OwnerID:       ownerID,
+		OwnerUsername: getEnv("OWNER_USERNAME", "SUDEEPBOTS"),
+		RepoURL:       getEnv("REPO_URL", "https://github.com/SUDEEPBOTS/module-renamer-bot"),
+		SupportChat:   getEnv("SUPPORT_CHAT", "SUDEEPBOTS"),
+		SudoUsers:     sudoMap,
+		FSubChannel:   getEnv("FSUB_CHANNEL", "SUDEEPBOTS"),
+		FSubChatID:    fsubChatID,
+		GitHubToken:   getEnv("GITHUB_TOKEN", ""),
+		WorkDir:       workDir,
+		LogChannel:    logChannel,
 	}
 }
 
-// IsSudo returns true if the user ID is the owner or in sudo users.
 func (c *Config) IsSudo(userID int64) bool {
 	if c.OwnerID != 0 && userID == c.OwnerID {
 		return true

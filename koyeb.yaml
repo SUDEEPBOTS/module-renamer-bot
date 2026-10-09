@@ -1,0 +1,16 @@
+name: module-renamer-bot
+type: web
+docker:
+  dockerfile: Dockerfile
+routes:
+  - path: /
+    port: 8080
+health_checks:
+  - tcp:
+      port: 8080
+  - http:
+      path: /health
+      port: 8080
+env:
+  - key: PORT
+    value: "8080"

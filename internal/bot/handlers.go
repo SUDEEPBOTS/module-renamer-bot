@@ -10,14 +10,15 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/SUDEEPBOTS/module-renamer-bot/internal/logger"
 	"github.com/SUDEEPBOTS/module-renamer-bot/internal/renamer"
 	"github.com/SUDEEPBOTS/module-renamer-bot/internal/vcs"
 )
 
-// SessionState stores in-flight conversation state for each user.
 type SessionState struct {
 	ID         string
 	UserID     int64
+	Username   string
 	Step       string
 	RepoURL    string
 	LocalDir   string
@@ -28,7 +29,6 @@ type SessionState struct {
 	Token      string
 }
 
-// SessionManager manages active user states thread-safely.
 type SessionManager struct {
 	mu       sync.RWMutex
 	sessions map[int64]*SessionState
@@ -64,7 +64,6 @@ func (sm *SessionManager) Clear(userID int64) {
 	}
 }
 
-// HandleMessage handles text and document messages.
 func (b *Bot) HandleMessage(msg *tgbotapi.Message) {
 	if msg == nil || msg.From == nil {
 		return
@@ -72,161 +71,199 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) {
 
 	userID := msg.From.ID
 
-	// Check if user is globally banned
 	if b.db.IsBanned(userID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "🚫 <i>You have been blacklisted from using this bot.</i>")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "<blockquote>🚫 <b>Access Prohibited:</b> You have been blacklisted from this bot.</blockquote>")
 		reply.ParseMode = "HTML"
 		_, _ = b.api.Send(reply)
 		return
 	}
 
-	// Register user in database
 	_ = b.db.AddUser(userID, msg.From.UserName, msg.From.FirstName)
 
-	// Check mandatory channel membership
 	joined, _ := b.CheckFSub(userID)
 	if !joined && !b.cfg.IsSudo(userID) {
 		b.SendFSubPrompt(msg.Chat.ID)
 		return
 	}
 
-	// Check admin commands
 	if msg.IsCommand() {
 		switch msg.Command() {
 		case "start":
 			b.handleStart(msg)
 			return
 		case "help":
-			b.handleHelp(msg.Chat.ID)
+			b.sendHelpPage(msg.Chat.ID, 0, 1)
 			return
 		case "rename":
-			b.promptRename(msg.Chat.ID, userID)
+			b.promptRename(msg.Chat.ID, userID, msg.From.UserName)
 			return
 		case "cancel":
 			b.sm.Clear(userID)
-			reply := tgbotapi.NewMessage(msg.Chat.ID, "✅ <i>Active operation cancelled.</i>")
+			reply := tgbotapi.NewMessage(msg.Chat.ID, "<blockquote>✅ <b>Active refactoring task cancelled and temporary workspace deleted.</b></blockquote>")
 			reply.ParseMode = "HTML"
 			_, _ = b.api.Send(reply)
 			return
-		case "admin", "panel", "stats", "gban", "ungban", "broadcast", "bcast", "users":
+		case "admin", "panel", "stats", "gban", "ungban", "broadcast", "bcast", "users", "log", "logs":
 			b.HandleAdminCommand(msg)
 			return
 		}
 	}
 
-	// Handle Document (ZIP upload)
 	if msg.Document != nil {
 		b.handleZipUpload(msg)
 		return
 	}
 
-	// Handle conversational steps
 	session := b.sm.Get(userID)
 	if session != nil {
 		b.handleConversationStep(msg, session)
 		return
 	}
 
-	// Check if message is a Git repository link
 	text := strings.TrimSpace(msg.Text)
 	if strings.HasPrefix(text, "http://") || strings.HasPrefix(text, "https://") {
-		b.handleRepoLink(msg.Chat.ID, userID, text)
+		b.handleRepoLink(msg.Chat.ID, userID, msg.From.UserName, text)
 		return
 	}
 
-	// Default fallback help
 	b.handleStart(msg)
 }
 
 func (b *Bot) handleStart(msg *tgbotapi.Message) {
+	logger.LogUserStart(msg.From.ID, msg.From.UserName, msg.From.FirstName)
+
 	isSudo := b.cfg.IsSudo(msg.From.ID)
-	supportLink := "https://t.me/" + b.cfg.FSubChannel
-	channelLink := "https://t.me/" + b.cfg.FSubChannel
 
 	greeting := fmt.Sprintf(
-		"👋 <b>Welcome, %s!</b>\n\n"+
-			"⚡ <b><u>%s</u></b>\n\n"+
-			"An enterprise-grade, high-speed codebase refactoring & rebranding engine written in <b>Golang</b>.\n\n"+
-			"<b>Core Capabilities:</b>\n"+
-			"• 🔄 <b>Universal Code Renaming:</b> Python, Go, JS, TS, Rust, C++, Java, configs\n"+
-			"• 🔡 <b>Unicode Font Detection:</b> Normalizes & renames stylized fonts (e.g. ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢)\n"+
-			"• 📁 <b>Folder & File Restructuring:</b> Bottom-up hierarchical path renaming\n"+
-			"• 📦 <b>Delivery Options:</b> Direct .ZIP download or instant GitHub push!\n\n"+
-			"👇 <i>Send a GitHub repository link or click below to begin!</i>",
+		"<blockquote>⚡ <b>%s</b></blockquote>\n\n"+
+			"<blockquote>👋 <b>Hello %s!</b>\n"+
+			"Welcome to the enterprise codebase refactoring & rebranding automation engine built in <b>Golang</b>.</blockquote>\n\n"+
+			"<blockquote expandable><b>Engine Specifications:</b>\n"+
+			"• 🔄 <b>Universal Scanning:</b> Python, Go, JS, TS, Rust, C++, Java, configs\n"+
+			"• 🔡 <b>Unicode Font Bypasser:</b> Decodes & renames stylized fonts (e.g. ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢)\n"+
+			"• 📁 <b>Bottom-Up Restructuring:</b> Deepest-level file and directory path renames\n"+
+			"• 📦 <b>Flexible Export:</b> Direct .ZIP document or automated GitHub push!</blockquote>\n\n"+
+			"<blockquote>👇 <i>Paste a public GitHub link or send a .zip archive to begin!</i></blockquote>",
+		renamer.ToBoldSerif("SUDEEPBOTS Module Renamer"),
 		msg.From.FirstName,
-		renamer.ToBoldSerif("Module Renamer Bot"),
 	)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, greeting)
 	reply.ParseMode = "HTML"
-	reply.ReplyMarkup = MakeStartKeyboard(isSudo, supportLink, channelLink)
+	reply.ReplyMarkup = MakeStartKeyboard(isSudo, b.cfg.OwnerUsername, b.cfg.RepoURL, b.cfg.SupportChat, b.cfg.FSubChannel)
 	_, _ = b.api.Send(reply)
 }
 
-func (b *Bot) handleHelp(chatID int64) {
-	text := "📖 <b><u>" + renamer.ToBoldSerif("Help & Command Guide") + "</u></b>\n\n" +
-		"<b>General Commands:</b>\n" +
-		"• <code>/start</code> — Open main bot interface\n" +
-		"• <code>/rename</code> — Initiate new rebranding task\n" +
-		"• <code>/cancel</code> — Abort current operation\n" +
-		"• <code>/help</code> — Show this documentation\n\n" +
-		"<b>How to use:</b>\n" +
-		"1. Paste a public GitHub repository link (or send a <code>.zip</code> file).\n" +
-		"2. Send the <b>Old Term</b> to replace (e.g. <code>Yukki</code>).\n" +
-		"3. Send the <b>New Term</b> (e.g. <code>Pulse</code>).\n" +
-		"4. Select whether to download as <b>ZIP</b> or <b>Push to GitHub</b>!"
+func (b *Bot) sendHelpPage(chatID int64, messageID int, page int) {
+	var body string
+	title := renamer.ToBoldSerif(fmt.Sprintf("Help & Documentation [Page %d/3]", page))
 
-	reply := tgbotapi.NewMessage(chatID, text)
-	reply.ParseMode = "HTML"
-	_, _ = b.api.Send(reply)
+	switch page {
+	case 1:
+		body = fmt.Sprintf(
+			"<blockquote>📖 <b>%s</b></blockquote>\n\n"+
+				"<blockquote><b>1. Getting Started</b>\n"+
+				"To rebrand an entire project:\n"+
+				"• Send a public GitHub URL (e.g. <code>https://github.com/owner/repo</code>)\n"+
+				"• OR upload a <code>.zip</code> source archive directly to this chat.\n"+
+				"• Enter the exact <b>Old Module Name</b> (e.g. <code>Yukki</code>).\n"+
+				"• Enter your desired <b>New Module Name</b> (e.g. <code>Pulse</code>).</blockquote>\n\n"+
+				"<blockquote expandable><b>Supported Language Syntax:</b>\n"+
+				"Python (.py), Golang (.go), JavaScript/TypeScript (.js, .ts), Rust (.rs), C/C++ (.c, .cpp, .h), Java (.java), Shell (.sh), Markdown (.md), JSON, YAML, Dockerfile, Makefile, and Environment (.env) files.</blockquote>",
+			title,
+		)
+	case 2:
+		body = fmt.Sprintf(
+			"<blockquote>🔡 <b>%s</b></blockquote>\n\n"+
+				"<blockquote><b>2. Unicode & Fancy Font Recognition</b>\n"+
+				"Many repositories use aesthetic fonts in their README or code (e.g. ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢, 𝒀𝒖𝒌𝒌𝒊, 𝐒υᴘᴘσꝛᴛ).\n"+
+				"Our engine maps all mathematical, small-cap, and stylized homoglyphs back to standard characters during matching.</blockquote>\n\n"+
+				"<blockquote expandable><b>Delivery Options:</b>\n"+
+				"• <b>📦 Export as ZIP:</b> Instantly compresses the cleaned codebase and uploads it as a Telegram document.\n"+
+				"• <b>🚀 Push to GitHub:</b> Connects to your GitHub account and pushes directly to a fresh or existing repository!</blockquote>",
+			title,
+		)
+	case 3:
+		body = fmt.Sprintf(
+			"<blockquote>👑 <b>%s</b></blockquote>\n\n"+
+				"<blockquote><b>3. Sudo & Cloud Operations</b>\n"+
+				"Administrators have access to real-time telemetry and management tools:</blockquote>\n\n"+
+				"<blockquote expandable><b>Sudo Commands:</b>\n"+
+				"• <code>/stats</code> — Real-time memory, goroutines, and renames\n"+
+				"• <code>/log on</code> or <code>/log off</code> — Toggle console & channel logging\n"+
+				"• <code>/broadcast &lt;text&gt;</code> — Send global broadcast to all users\n"+
+				"• <code>/gban &lt;user_id&gt; [reason]</code> — Blacklist spam user\n"+
+				"• <code>/ungban &lt;user_id&gt;</code> — Remove user blacklist\n"+
+				"• <code>/users</code> — Total registered user count</blockquote>",
+			title,
+		)
+	}
+
+	markup := MakeHelpKeyboard(page)
+
+	if messageID != 0 {
+		edit := tgbotapi.NewEditMessageText(chatID, messageID, body)
+		edit.ParseMode = "HTML"
+		edit.ReplyMarkup = &markup
+		_, _ = b.api.Send(edit)
+	} else {
+		msg := tgbotapi.NewMessage(chatID, body)
+		msg.ParseMode = "HTML"
+		msg.ReplyMarkup = markup
+		_, _ = b.api.Send(msg)
+	}
 }
 
-func (b *Bot) promptRename(chatID int64, userID int64) {
+func (b *Bot) promptRename(chatID int64, userID int64, username string) {
 	b.sm.Clear(userID)
 	sessionID := fmt.Sprintf("sess_%d_%d", userID, time.Now().Unix())
 	b.sm.Set(userID, &SessionState{
-		ID:     sessionID,
-		UserID: userID,
-		Step:   "AWAITING_SOURCE",
+		ID:       sessionID,
+		UserID:   userID,
+		Username: username,
+		Step:     "AWAITING_SOURCE",
 	})
 
-	text := "🚀 <b><u>" + renamer.ToBoldSerif("Start New Renaming Task") + "</u></b>\n\n" +
-		"Please send the <b>GitHub Repository Link</b> (e.g. <code>https://github.com/group-66666/YukkiMusic-Go</code>) " +
-		"or upload a <b>.zip</b> project file."
+	text := fmt.Sprintf(
+		"<blockquote>🚀 <b>%s</b></blockquote>\n\n"+
+			"<blockquote>Please send the <b>GitHub Repository URL</b> (e.g. <code>https://github.com/group-66666/YukkiMusic-Go</code>) "+
+			"or upload a <b>.zip</b> project archive to begin.</blockquote>",
+		renamer.ToBoldSerif("Start New Rebranding Task"),
+	)
 
 	reply := tgbotapi.NewMessage(chatID, text)
 	reply.ParseMode = "HTML"
 	_, _ = b.api.Send(reply)
 }
 
-func (b *Bot) handleRepoLink(chatID int64, userID int64, repoURL string) {
+func (b *Bot) handleRepoLink(chatID int64, userID int64, username, repoURL string) {
 	b.sm.Clear(userID)
 	sessionID := fmt.Sprintf("sess_%d_%d", userID, time.Now().Unix())
 	workDir := filepath.Join(b.cfg.WorkDir, sessionID)
 
-	statusMsg := tgbotapi.NewMessage(chatID, "⏳ <i>Cloning repository from GitHub...</i>")
+	statusMsg := tgbotapi.NewMessage(chatID, "<blockquote>⏳ <b>Cloning repository from GitHub...</b></blockquote>")
 	statusMsg.ParseMode = "HTML"
 	sent, _ := b.api.Send(statusMsg)
 
 	err := vcs.CloneRepo(repoURL, workDir)
 	if err != nil {
-		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, fmt.Sprintf("❌ <b>Clone failed:</b> %v", err))
-		edit.ParseMode = "HTML"
-		_, _ = b.api.Send(edit)
+		logger.LogRenameFailure(userID, username, err)
+		b.sendAIErrorBlock(chatID, sent.MessageID, "Git Clone Failure", err)
 		return
 	}
 
 	b.sm.Set(userID, &SessionState{
 		ID:       sessionID,
 		UserID:   userID,
+		Username: username,
 		Step:     "AWAITING_OLD_NAME",
 		RepoURL:  repoURL,
 		LocalDir: workDir,
 	})
 
-	text := "✅ <b>Repository cloned successfully!</b>\n\n" +
-		"🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
-		"<i>Example:</i> <code>Yukki</code> or <code>YUKKIMUSIC</code>"
+	text := "<blockquote>✅ <b>Repository cloned successfully!</b></blockquote>\n\n" +
+		"<blockquote>🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
+		"<i>Example:</i> <code>Yukki</code> or <code>YUKKIMUSIC</code></blockquote>"
 
 	edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
 	edit.ParseMode = "HTML"
@@ -235,10 +272,11 @@ func (b *Bot) handleRepoLink(chatID int64, userID int64, repoURL string) {
 
 func (b *Bot) handleZipUpload(msg *tgbotapi.Message) {
 	userID := msg.From.ID
+	username := msg.From.UserName
 	doc := msg.Document
 
 	if !strings.HasSuffix(strings.ToLower(doc.FileName), ".zip") {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ <i>Please upload a valid .zip archive!</i>")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "<blockquote>⚠️ <i>Please upload a valid .zip archive file!</i></blockquote>")
 		reply.ParseMode = "HTML"
 		_, _ = b.api.Send(reply)
 		return
@@ -249,53 +287,55 @@ func (b *Bot) handleZipUpload(msg *tgbotapi.Message) {
 	workDir := filepath.Join(b.cfg.WorkDir, sessionID)
 	_ = os.MkdirAll(workDir, 0755)
 
-	statusMsg := tgbotapi.NewMessage(msg.Chat.ID, "⏳ <i>Downloading and unpacking ZIP archive...</i>")
+	statusMsg := tgbotapi.NewMessage(msg.Chat.ID, "<blockquote>⏳ <b>Downloading and unpacking ZIP archive...</b></blockquote>")
 	statusMsg.ParseMode = "HTML"
 	sent, _ := b.api.Send(statusMsg)
 
-	// Fetch file URL from Telegram
 	fileConfig := tgbotapi.FileConfig{FileID: doc.FileID}
 	file, err := b.api.GetFile(fileConfig)
 	if err != nil {
-		edit := tgbotapi.NewEditMessageText(msg.Chat.ID, sent.MessageID, "❌ <i>Failed to download file from Telegram.</i>")
-		edit.ParseMode = "HTML"
-		_, _ = b.api.Send(edit)
+		b.sendAIErrorBlock(msg.Chat.ID, sent.MessageID, "Telegram File Download", err)
 		return
 	}
 
 	downloadURL := file.Link(b.cfg.BotToken)
 	zipDest := filepath.Join(workDir, "uploaded.zip")
 
-	// Download file
 	resp, err := http.Get(downloadURL)
 	if err != nil {
-		edit := tgbotapi.NewEditMessageText(msg.Chat.ID, sent.MessageID, "❌ <i>Error fetching ZIP payload.</i>")
-		edit.ParseMode = "HTML"
-		_, _ = b.api.Send(edit)
+		b.sendAIErrorBlock(msg.Chat.ID, sent.MessageID, "ZIP Payload Fetch", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	out, _ := os.Create(zipDest)
+	out, err := os.Create(zipDest)
+	if err != nil {
+		b.sendAIErrorBlock(msg.Chat.ID, sent.MessageID, "Local Disk Write", err)
+		return
+	}
 	_, _ = out.ReadFrom(resp.Body)
 	out.Close()
 
-	// Extract zip
 	extractedDir := filepath.Join(workDir, "src")
 	_ = os.MkdirAll(extractedDir, 0755)
-	// Unzip using unzip command
-	_ = vcs.CloneRepo(zipDest, extractedDir) // fallback
+
+	err = vcs.UnzipArchive(zipDest, extractedDir)
+	if err != nil {
+		b.sendAIErrorBlock(msg.Chat.ID, sent.MessageID, "ZIP Archive Extraction", err)
+		return
+	}
 
 	b.sm.Set(userID, &SessionState{
 		ID:       sessionID,
 		UserID:   userID,
+		Username: username,
 		Step:     "AWAITING_OLD_NAME",
 		LocalDir: extractedDir,
 	})
 
-	text := "✅ <b>Project received and extracted!</b>\n\n" +
-		"🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
-		"<i>Example:</i> <code>Yukki</code>"
+	text := "<blockquote>✅ <b>Archive extracted successfully!</b></blockquote>\n\n" +
+		"<blockquote>🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
+		"<i>Example:</i> <code>Yukki</code></blockquote>"
 
 	edit := tgbotapi.NewEditMessageText(msg.Chat.ID, sent.MessageID, text)
 	edit.ParseMode = "HTML"
@@ -309,9 +349,9 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 	switch session.Step {
 	case "AWAITING_SOURCE":
 		if strings.HasPrefix(text, "http://") || strings.HasPrefix(text, "https://") {
-			b.handleRepoLink(chatID, msg.From.ID, text)
+			b.handleRepoLink(chatID, msg.From.ID, msg.From.UserName, text)
 		} else {
-			reply := tgbotapi.NewMessage(chatID, "⚠️ <i>Please provide a valid GitHub repository URL.</i>")
+			reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Please provide a valid GitHub repository link.</i></blockquote>")
 			reply.ParseMode = "HTML"
 			_, _ = b.api.Send(reply)
 		}
@@ -320,9 +360,9 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 		session.OldName = text
 		session.Step = "AWAITING_NEW_NAME"
 		replyText := fmt.Sprintf(
-			"✅ <b>Old Name Recorded:</b> <code>%s</code>\n\n"+
-				"✨ <b>Step 2:</b> Enter the <b>NEW Name/Module</b> to replace with.\n"+
-				"<i>Example:</i> <code>Pulse</code>",
+			"<blockquote>✅ <b>Target Recorded:</b> <code>%s</code></blockquote>\n\n"+
+				"<blockquote>✨ <b>Step 2:</b> Enter the <b>NEW Name/Module</b> to replace with.\n"+
+				"<i>Example:</i> <code>Pulse</code></blockquote>",
 			text,
 		)
 		reply := tgbotapi.NewMessage(chatID, replyText)
@@ -333,8 +373,9 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 		session.NewName = text
 		session.Step = "AWAITING_DELIVERY_CHOICE"
 
-		// Run the renamer engine now!
-		statusMsg := tgbotapi.NewMessage(chatID, "⚙️ <i>Refactoring codebase and replacing font variants...</i>")
+		logger.LogRenameInitiated(session.UserID, session.Username, session.RepoURL, session.OldName, session.NewName)
+
+		statusMsg := tgbotapi.NewMessage(chatID, "<blockquote>⚙️ <b>Refactoring codebase and evaluating Unicode font lookalikes...</b></blockquote>")
 		statusMsg.ParseMode = "HTML"
 		sent, _ := b.api.Send(statusMsg)
 
@@ -346,25 +387,25 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 			IncludeFonts: true,
 		})
 
-		_ = b.db.IncrementRenames()
-
 		if err != nil {
-			edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, fmt.Sprintf("❌ <b>Renaming Error:</b> %v", err))
-			edit.ParseMode = "HTML"
-			_, _ = b.api.Send(edit)
+			logger.LogRenameFailure(session.UserID, session.Username, err)
+			b.sendAIErrorBlock(chatID, sent.MessageID, "Codebase Refactoring Engine", err)
 			return
 		}
 
+		_ = b.db.IncrementRenames()
+		logger.LogRenameSuccess(session.UserID, session.Username, session.OldName, session.NewName, report.FilesScanned, report.FilesModified, report.ReplacementsCount, report.DirectoriesRenamed+report.FilesRenamed)
+
 		resultText := fmt.Sprintf(
-			"🎉 <b><u>%s</u></b>\n\n"+
-				"<b>Rebranding Summary:</b>\n"+
-				"• <b>Old Term:</b> <code>%s</code>\n"+
-				"• <b>New Term:</b> <code>%s</code>\n"+
+			"<blockquote>🎉 <b>%s</b></blockquote>\n\n"+
+				"<blockquote><b>Rebranding Telemetry:</b>\n"+
+				"• <b>Target Old:</b> <code>%s</code>\n"+
+				"• <b>Target New:</b> <code>%s</code>\n"+
 				"• <b>Files Scanned:</b> <code>%d</code>\n"+
 				"• <b>Files Modified:</b> <code>%d</code>\n"+
 				"• <b>Occurrences Replaced:</b> <code>%d</code>\n"+
-				"• <b>Paths/Folders Renamed:</b> <code>%d</code>\n\n"+
-				"📦 <i>How would you like to receive your updated project?</i>",
+				"• <b>Paths/Directories Renamed:</b> <code>%d</code></blockquote>\n\n"+
+				"<blockquote>📦 <b>Select your delivery method below:</b></blockquote>",
 			renamer.ToBoldSerif("Renaming Completed Successfully"),
 			session.OldName,
 			session.NewName,
@@ -385,13 +426,12 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 		session.Step = "AWAITING_GITHUB_PUSH_TOKEN"
 
 		if b.cfg.GitHubToken != "" {
-			// Auto push with configured bot token!
 			b.executeGitHubPush(chatID, session, b.cfg.GitHubToken)
 			return
 		}
 
-		replyText := "🔑 <b>Please provide your GitHub Personal Access Token (PAT):</b>\n" +
-			"<i>(Must have 'repo' scope to push to your repository)</i>"
+		replyText := "<blockquote>🔑 <b>Please provide your GitHub Personal Access Token (PAT):</b>\n" +
+			"<i>(Requires 'repo' scope permissions to push changes)</i></blockquote>"
 		reply := tgbotapi.NewMessage(chatID, replyText)
 		reply.ParseMode = "HTML"
 		_, _ = b.api.Send(reply)
@@ -403,7 +443,7 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 }
 
 func (b *Bot) executeGitHubPush(chatID int64, session *SessionState, token string) {
-	statusMsg := tgbotapi.NewMessage(chatID, "🚀 <i>Initializing repository and pushing to GitHub...</i>")
+	statusMsg := tgbotapi.NewMessage(chatID, "<blockquote>🚀 <b>Initializing git branch and pushing to GitHub...</b></blockquote>")
 	statusMsg.ParseMode = "HTML"
 	sent, _ := b.api.Send(statusMsg)
 
@@ -411,17 +451,15 @@ func (b *Bot) executeGitHubPush(chatID int64, session *SessionState, token strin
 	err := vcs.PushToGitHub(session.LocalDir, session.TargetRepo, token, commitMsg)
 
 	if err != nil {
-		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, fmt.Sprintf("❌ <b>Push Failed:</b>\n<code>%v</code>", err))
-		edit.ParseMode = "HTML"
-		_, _ = b.api.Send(edit)
+		logger.LogRenameFailure(session.UserID, session.Username, err)
+		b.sendAIErrorBlock(chatID, sent.MessageID, "GitHub Remote Push", err)
 		return
 	}
 
 	successText := fmt.Sprintf(
-		"🚀 <b><u>%s</u></b>\n\n"+
-			"Your rebranded repository has been pushed cleanly to GitHub!\n\n"+
-			"🔗 <b>Repository:</b> <a href=\"%s\">%s</a>\n\n"+
-			"<i>Thank you for using SUDEEPBOTS Module Renamer!</i>",
+		"<blockquote>🚀 <b>%s</b></blockquote>\n\n"+
+			"<blockquote>Your rebranded repository has been pushed cleanly to GitHub!\n\n"+
+			"🔗 <b>Repository:</b> <a href=\"%s\">%s</a></blockquote>",
 		renamer.ToBoldSerif("Pushed to GitHub Successfully"),
 		session.TargetRepo,
 		session.TargetRepo,
@@ -433,4 +471,23 @@ func (b *Bot) executeGitHubPush(chatID int64, session *SessionState, token strin
 	_, _ = b.api.Send(edit)
 
 	b.sm.Clear(session.UserID)
+}
+
+func (b *Bot) sendAIErrorBlock(chatID int64, messageID int, stage string, err error) {
+	errText := fmt.Sprintf(
+		"<blockquote>❌ <b>Execution Failure: %s</b>\n"+
+			"An unexpected error occurred during execution. Copy the trace below and provide it to an AI assistant or developer to resolve:</blockquote>\n\n"+
+			"<pre><code>[ERROR TRACE] Stage: %s\nTime: %s\nDetails: %v</code></pre>",
+		stage, stage, time.Now().Format(time.RFC3339), err,
+	)
+
+	if messageID != 0 {
+		edit := tgbotapi.NewEditMessageText(chatID, messageID, errText)
+		edit.ParseMode = "HTML"
+		_, _ = b.api.Send(edit)
+	} else {
+		msg := tgbotapi.NewMessage(chatID, errText)
+		msg.ParseMode = "HTML"
+		_, _ = b.api.Send(msg)
+	}
 }

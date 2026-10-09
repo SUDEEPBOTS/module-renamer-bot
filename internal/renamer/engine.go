@@ -11,7 +11,6 @@ import (
 	"unicode/utf8"
 )
 
-// RenameOptions specifies configuration for a rename task.
 type RenameOptions struct {
 	TargetDir      string
 	OldName        string
@@ -21,7 +20,6 @@ type RenameOptions struct {
 	IgnoredDirs    []string
 }
 
-// RenameReport stores execution statistics.
 type RenameReport struct {
 	FilesScanned       int
 	FilesModified      int
@@ -30,7 +28,6 @@ type RenameReport struct {
 	FilesRenamed       int
 }
 
-// DefaultIgnoredDirs directories to skip during traversal.
 var DefaultIgnoredDirs = []string{
 	".git",
 	"__pycache__",
@@ -44,7 +41,6 @@ var DefaultIgnoredDirs = []string{
 	".pytest_cache",
 }
 
-// DefaultBinaryExtensions to skip file reading.
 var DefaultBinaryExtensions = map[string]bool{
 	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".webp": true,
 	".ico": true, ".svg": false, ".exe": true, ".dll": true, ".so": true,
@@ -54,12 +50,10 @@ var DefaultBinaryExtensions = map[string]bool{
 	".pdf": true, ".ttf": true, ".woff": true, ".woff2": true, ".class": true,
 }
 
-// Engine performs codebase-wide renaming.
 type Engine struct {
 	ignoredDirs map[string]bool
 }
 
-// NewEngine creates a new Renamer Engine.
 func NewEngine() *Engine {
 	ignored := make(map[string]bool)
 	for _, d := range DefaultIgnoredDirs {
@@ -68,7 +62,6 @@ func NewEngine() *Engine {
 	return &Engine{ignoredDirs: ignored}
 }
 
-// Execute runs the full renaming pipeline on the target directory.
 func (e *Engine) Execute(opts RenameOptions) (*RenameReport, error) {
 	report := &RenameReport{}
 
@@ -76,13 +69,11 @@ func (e *Engine) Execute(opts RenameOptions) (*RenameReport, error) {
 		return report, nil
 	}
 
-	// 1. Process and replace file contents
 	err := e.processFileContents(opts, report)
 	if err != nil {
 		return report, err
 	}
 
-	// 2. Rename files and folders bottom-up
 	err = e.renamePathsBottomUp(opts, report)
 	if err != nil {
 		return report, err
@@ -112,7 +103,6 @@ func (e *Engine) processFileContents(opts RenameOptions, report *RenameReport) e
 			return nil
 		}
 
-		// Read file content
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil
@@ -120,7 +110,6 @@ func (e *Engine) processFileContents(opts RenameOptions, report *RenameReport) e
 
 		report.FilesScanned++
 
-		// Check if binary
 		if isBinary(data) {
 			return nil
 		}
@@ -129,7 +118,6 @@ func (e *Engine) processFileContents(opts RenameOptions, report *RenameReport) e
 		content := originalStr
 		replacedInFile := 0
 
-		// Multi-casing replacement
 		for _, pair := range pairs {
 			if strings.Contains(content, pair.Old) {
 				count := strings.Count(content, pair.Old)
@@ -138,7 +126,6 @@ func (e *Engine) processFileContents(opts RenameOptions, report *RenameReport) e
 			}
 		}
 
-		// Stylized Unicode font replacement if enabled
 		if opts.IncludeFonts {
 			content, replacedInFile = replaceStylizedFonts(content, opts.OldName, opts.NewName, replacedInFile)
 		}
@@ -155,7 +142,6 @@ func (e *Engine) processFileContents(opts RenameOptions, report *RenameReport) e
 	})
 }
 
-// renamePathsBottomUp renames directory names and file names starting from deepest leaves.
 func (e *Engine) renamePathsBottomUp(opts RenameOptions, report *RenameReport) error {
 	pairs := generateReplacementPairs(opts.OldName, opts.NewName)
 
@@ -175,7 +161,6 @@ func (e *Engine) renamePathsBottomUp(opts RenameOptions, report *RenameReport) e
 		return nil
 	})
 
-	// Sort by depth descending (deepest paths first)
 	sort.Slice(paths, func(i, j int) bool {
 		return len(paths[i]) > len(paths[j])
 	})
@@ -224,12 +209,10 @@ func generateReplacementPairs(oldName, newName string) []ReplacementPair {
 	oldTitle := toTitleCase(oldName)
 	newTitle := toTitleCase(newName)
 
-	// Suffix combinations commonly found (e.g. YUKKIIMUSIC -> PULSEMUSIC)
 	pairs = append(pairs, ReplacementPair{Old: oldUpper + "MUSIC", New: newUpper + "MUSIC"})
 	pairs = append(pairs, ReplacementPair{Old: oldLower + "music", New: newLower + "music"})
 	pairs = append(pairs, ReplacementPair{Old: oldTitle + "Music", New: newTitle + "Music"})
 
-	// Direct case variations
 	pairs = append(pairs, ReplacementPair{Old: oldUpper, New: newUpper})
 	pairs = append(pairs, ReplacementPair{Old: oldName, New: newName})
 	pairs = append(pairs, ReplacementPair{Old: oldTitle, New: newTitle})
@@ -254,24 +237,20 @@ func isBinary(data []byte) bool {
 	return bytes.IndexByte(data[:checkLen], 0) != -1
 }
 
-// replaceStylizedFonts scans text rune by rune, identifies stylized words matching oldName, and replaces them.
 func replaceStylizedFonts(content, oldName, newName string, currentReplacements int) (string, int) {
 	normTarget := strings.ToLower(oldName)
 	if len(normTarget) == 0 {
 		return content, currentReplacements
 	}
 
-	// Build regex for case-insensitive ascii normalized matching
 	re := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(oldName))
 	matches := re.FindAllStringIndex(content, -1)
 	if len(matches) > 0 {
 		return content, currentReplacements
 	}
 
-	// Check if normalized version exists in text
 	normalizedContent := NormalizeToASCII(content)
 	if strings.Contains(strings.ToLower(normalizedContent), normTarget) {
-		// Replace occurrence preserving surrounding text
 		content = strings.ReplaceAll(content, ToAestheticFancy(oldName), ToAestheticFancy(newName))
 		content = strings.ReplaceAll(content, ToBoldSerif(oldName), ToBoldSerif(newName))
 		currentReplacements++

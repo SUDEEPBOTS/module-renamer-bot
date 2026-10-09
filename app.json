@@ -1,0 +1,46 @@
+{
+  "name": "SUDEEPBOTS Module Renamer Bot",
+  "description": "Universal Codebase Refactoring & Module Renamer Engine in Golang",
+  "keywords": ["golang", "telegram-bot", "codebase-renamer", "refactor"],
+  "repository": "https://github.com/SUDEEPBOTS/module-renamer-bot",
+  "stack": "container",
+  "env": {
+    "BOT_TOKEN": {
+      "description": "Telegram Bot Token from @BotFather",
+      "required": true
+    },
+    "OWNER_ID": {
+      "description": "Numeric User ID of Bot Owner",
+      "required": true
+    },
+    "OWNER_USERNAME": {
+      "description": "Owner Telegram Username (without @)",
+      "value": "SUDEEPBOTS",
+      "required": false
+    },
+    "MONGO_URI": {
+      "description": "MongoDB Connection String (Optional, falls back to In-Memory)",
+      "required": false
+    },
+    "FSUB_CHANNEL": {
+      "description": "Channel for mandatory join check",
+      "value": "SUDEEPBOTS",
+      "required": false
+    },
+    "GITHUB_TOKEN": {
+      "description": "Default Personal Access Token for GitHub Pushes",
+      "required": false
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/go"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  }
+}

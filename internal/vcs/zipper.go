@@ -2,13 +2,13 @@ package vcs
 
 import (
 	"archive/zip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// CreateZip compresses the source directory into a target zip file path.
 func CreateZip(sourceDir, targetZipPath string, ignoredDirs []string) error {
 	zipFile, err := os.Create(targetZipPath)
 	if err != nil {
@@ -41,7 +41,6 @@ func CreateZip(sourceDir, targetZipPath string, ignoredDirs []string) error {
 			return err
 		}
 
-		// Use standard forward slashes for ZIP format
 		relPath = strings.ReplaceAll(relPath, "\\", "/")
 
 		header, err := zip.FileInfoHeader(info)
@@ -66,4 +65,50 @@ func CreateZip(sourceDir, targetZipPath string, ignoredDirs []string) error {
 		_, err = io.Copy(writer, file)
 		return err
 	})
+}
+
+func UnzipArchive(srcZip, destDir string) error {
+	r, err := zip.OpenReader(srcZip)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		targetPath := filepath.Join(destDir, f.Name)
+
+		if !strings.HasPrefix(filepath.Clean(targetPath), filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path in zip: %s", f.Name)
+		}
+
+		if f.FileInfo().IsDir() {
+			_ = os.MkdirAll(targetPath, 0755)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			return err
+		}
+
+		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+		outFile.Close()
+		rc.Close()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: module-renamer-bot
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: FSUB_CHANNEL
+        value: SUDEEPBOTS
+      - key: PORT
+        value: 8080

@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// MemoryDatabase provides an in-memory database with thread safety.
 type MemoryDatabase struct {
 	mu           sync.RWMutex
 	users        map[int64]User
@@ -14,7 +13,6 @@ type MemoryDatabase struct {
 	totalRenames int64
 }
 
-// NewMemoryDatabase creates a new in-memory database.
 func NewMemoryDatabase() *MemoryDatabase {
 	return &MemoryDatabase{
 		users:  make(map[int64]User),

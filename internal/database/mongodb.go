@@ -9,15 +9,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// MongoDatabase implements Database interface over MongoDB.
 type MongoDatabase struct {
-	client       *mongo.Client
-	usersColl    *mongo.Collection
-	bannedColl   *mongo.Collection
-	statsColl    *mongo.Collection
+	client     *mongo.Client
+	usersColl  *mongo.Collection
+	bannedColl *mongo.Collection
+	statsColl  *mongo.Collection
 }
 
-// NewMongoDatabase connects to a MongoDB server.
 func NewMongoDatabase(uri, dbName string) (*MongoDatabase, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

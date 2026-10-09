@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/SUDEEPBOTS/module-renamer-bot/internal/logger"
 	"github.com/SUDEEPBOTS/module-renamer-bot/internal/renamer"
 	"github.com/SUDEEPBOTS/module-renamer-bot/internal/utils"
 	"github.com/SUDEEPBOTS/module-renamer-bot/internal/vcs"
 )
 
-// HandleCallbackQuery dispatches inline keyboard button clicks.
 func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 	if query == nil || query.From == nil {
 		return
@@ -23,16 +24,14 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 	chatID := query.Message.Chat.ID
 	messageID := query.Message.MessageID
 
-	// Always acknowledge callback query to dismiss loading wheel
 	ack := tgbotapi.NewCallback(query.ID, "")
 	_, _ = b.api.Request(ack)
 
-	// FSub verification
 	if data == "verify_fsub" {
 		joined, _ := b.CheckFSub(userID)
 		if joined {
 			_ = b.db.AddUser(userID, query.From.UserName, query.From.FirstName)
-			edit := tgbotapi.NewEditMessageText(chatID, messageID, "✅ <b>Membership verified!</b> You may now use the bot. Type /start to begin.")
+			edit := tgbotapi.NewEditMessageText(chatID, messageID, "<blockquote>✅ <b>Channel membership verified!</b> You can now use the bot. Type /start to open the main menu.</blockquote>")
 			edit.ParseMode = "HTML"
 			_, _ = b.api.Send(edit)
 		} else {
@@ -42,21 +41,23 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	// Commands
-	if data == "cmd_help" {
-		b.handleHelp(chatID)
+	if strings.HasPrefix(data, "help_page_") {
+		pageNum, _ := strconv.Atoi(strings.TrimPrefix(data, "help_page_"))
+		if pageNum < 1 {
+			pageNum = 1
+		}
+		b.sendHelpPage(chatID, messageID, pageNum)
 		return
 	}
 
 	if data == "cmd_rename_prompt" {
-		b.promptRename(chatID, userID)
+		b.promptRename(chatID, userID, query.From.UserName)
 		return
 	}
 
-	// Admin console callbacks
 	if strings.HasPrefix(data, "admin_") || data == "cmd_admin_panel" {
 		if !b.cfg.IsSudo(userID) {
-			alert := tgbotapi.NewCallbackWithAlert(query.ID, "⛔ Access Denied: Sudo Admin only.")
+			alert := tgbotapi.NewCallbackWithAlert(query.ID, "⛔ Access Denied: Sudo Administrators only.")
 			_, _ = b.api.Request(alert)
 			return
 		}
@@ -64,32 +65,49 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 		switch data {
 		case "cmd_admin_panel":
 			b.sendAdminPanel(chatID)
+		case "admin_toggle_logger":
+			newState := !logger.IsEnabled()
+			logger.SetEnabled(newState)
+			stateStr := "ENABLED"
+			if !newState {
+				stateStr = "DISABLED"
+			}
+			alert := tgbotapi.NewCallbackWithAlert(query.ID, fmt.Sprintf("Logger is now %s", stateStr))
+			_, _ = b.api.Request(alert)
+
+			markup := MakeAdminPanelKeyboard(logger.IsEnabled())
+			editMarkup := tgbotapi.NewEditMessageReplyMarkup(chatID, messageID, markup)
+			_, _ = b.api.Send(editMarkup)
+
 		case "admin_stats":
 			totalUsers, _ := b.db.CountUsers()
 			totalRenames := b.db.GetTotalRenames()
 			stats := utils.GetSystemStats()
 			edit := tgbotapi.NewEditMessageText(chatID, messageID, stats.FormatStatsMessage(totalUsers, totalRenames))
 			edit.ParseMode = "HTML"
-			markup := MakeAdminPanelKeyboard()
+			markup := MakeAdminPanelKeyboard(logger.IsEnabled())
 			edit.ReplyMarkup = &markup
 			_, _ = b.api.Send(edit)
+
 		case "admin_users":
 			count, _ := b.db.CountUsers()
-			edit := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("👥 <b>Total Registered Users:</b> <code>%d</code>", count))
+			edit := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("<blockquote>👥 <b>Total Registered Users:</b> <code>%d</code></blockquote>", count))
 			edit.ParseMode = "HTML"
-			markup := MakeAdminPanelKeyboard()
+			markup := MakeAdminPanelKeyboard(logger.IsEnabled())
 			edit.ReplyMarkup = &markup
 			_, _ = b.api.Send(edit)
+
 		case "admin_bcast_info":
-			edit := tgbotapi.NewEditMessageText(chatID, messageID, "📢 <b>Broadcast Guide:</b>\n\nUse <code>/broadcast &lt;message&gt;</code> or reply to a text/photo message with <code>/broadcast</code> to send to all bot users.")
+			edit := tgbotapi.NewEditMessageText(chatID, messageID, "<blockquote>📢 <b>Broadcast Instructions:</b>\n\nUse <code>/broadcast &lt;message&gt;</code> or reply to a text/photo message with <code>/broadcast</code> to send to all registered bot users.</blockquote>")
 			edit.ParseMode = "HTML"
-			markup := MakeAdminPanelKeyboard()
+			markup := MakeAdminPanelKeyboard(logger.IsEnabled())
 			edit.ReplyMarkup = &markup
 			_, _ = b.api.Send(edit)
+
 		case "admin_gban_info":
-			edit := tgbotapi.NewEditMessageText(chatID, messageID, "🚫 <b>GBan Guide:</b>\n\nUse <code>/gban &lt;user_id&gt; [reason]</code> to blacklist a user, and <code>/ungban &lt;user_id&gt;</code> to remove the blacklist.")
+			edit := tgbotapi.NewEditMessageText(chatID, messageID, "<blockquote>🚫 <b>GBan Instructions:</b>\n\nUse <code>/gban &lt;user_id&gt; [reason]</code> to blacklist a spammer, and <code>/ungban &lt;user_id&gt;</code> to remove the blacklist.</blockquote>")
 			edit.ParseMode = "HTML"
-			markup := MakeAdminPanelKeyboard()
+			markup := MakeAdminPanelKeyboard(logger.IsEnabled())
 			edit.ReplyMarkup = &markup
 			_, _ = b.api.Send(edit)
 		}
@@ -101,7 +119,6 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	// Export callbacks
 	if strings.HasPrefix(data, "export_zip:") {
 		b.handleExportZip(chatID, messageID, userID)
 		return
@@ -114,7 +131,7 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 
 	if strings.HasPrefix(data, "cancel:") {
 		b.sm.Clear(userID)
-		edit := tgbotapi.NewEditMessageText(chatID, messageID, "❌ <i>Operation cancelled and temporary files discarded.</i>")
+		edit := tgbotapi.NewEditMessageText(chatID, messageID, "<blockquote>❌ <b>Operation cancelled and temporary files discarded.</b></blockquote>")
 		edit.ParseMode = "HTML"
 		_, _ = b.api.Send(edit)
 		return
@@ -124,13 +141,13 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 func (b *Bot) handleExportZip(chatID int64, messageID int, userID int64) {
 	session := b.sm.Get(userID)
 	if session == nil {
-		reply := tgbotapi.NewMessage(chatID, "⚠️ <i>Session expired or not found. Please start over with /rename.</i>")
+		reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Session expired or not found. Please start over with /rename.</i></blockquote>")
 		reply.ParseMode = "HTML"
 		_, _ = b.api.Send(reply)
 		return
 	}
 
-	edit := tgbotapi.NewEditMessageText(chatID, messageID, "📦 <i>Compressing rebranded project into ZIP archive...</i>")
+	edit := tgbotapi.NewEditMessageText(chatID, messageID, "<blockquote>📦 <b>Compressing rebranded project into ZIP archive...</b></blockquote>")
 	edit.ParseMode = "HTML"
 	_, _ = b.api.Send(edit)
 
@@ -139,26 +156,22 @@ func (b *Bot) handleExportZip(chatID int64, messageID int, userID int64) {
 
 	err := vcs.CreateZip(session.LocalDir, zipPath, renamer.DefaultIgnoredDirs)
 	if err != nil {
-		editErr := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("❌ <i>Failed to create ZIP archive: %v</i>", err))
-		editErr.ParseMode = "HTML"
-		_, _ = b.api.Send(editErr)
+		logger.LogRenameFailure(userID, session.Username, err)
+		b.sendAIErrorBlock(chatID, messageID, "ZIP Archive Generation", err)
 		return
 	}
 
-	// Send document to user
 	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(zipPath))
-	doc.Caption = fmt.Sprintf("✅ <b>Project Archive:</b> <code>%s</code>\nRebranded from <b>%s</b> to <b>%s</b> via SUDEEPBOTS Module Renamer ⚡", zipName, session.OldName, session.NewName)
+	doc.Caption = fmt.Sprintf("<blockquote>✅ <b>Rebranded Project:</b> <code>%s</code>\nRebranded from <b>%s</b> to <b>%s</b> via SUDEEPBOTS Module Renamer ⚡</blockquote>", zipName, session.OldName, session.NewName)
 	doc.ParseMode = "HTML"
 
 	_, err = b.api.Send(doc)
 	if err != nil {
-		editErr := tgbotapi.NewEditMessageText(chatID, messageID, fmt.Sprintf("❌ <i>Telegram upload failed: %v</i>", err))
-		editErr.ParseMode = "HTML"
-		_, _ = b.api.Send(editErr)
+		logger.LogRenameFailure(userID, session.Username, err)
+		b.sendAIErrorBlock(chatID, messageID, "Telegram Document Dispatch", err)
 		return
 	}
 
-	// Cleanup
 	_ = os.Remove(zipPath)
 	b.sm.Clear(userID)
 }
@@ -166,7 +179,7 @@ func (b *Bot) handleExportZip(chatID int64, messageID int, userID int64) {
 func (b *Bot) handleExportGitHub(chatID int64, messageID int, userID int64) {
 	session := b.sm.Get(userID)
 	if session == nil {
-		reply := tgbotapi.NewMessage(chatID, "⚠️ <i>Session expired. Please start over with /rename.</i>")
+		reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Session expired. Please start over with /rename.</i></blockquote>")
 		reply.ParseMode = "HTML"
 		_, _ = b.api.Send(reply)
 		return
@@ -174,9 +187,12 @@ func (b *Bot) handleExportGitHub(chatID int64, messageID int, userID int64) {
 
 	session.Step = "AWAITING_GITHUB_PUSH_URL"
 
-	promptText := "🚀 <b><u>" + renamer.ToBoldSerif("Deploy to GitHub") + "</u></b>\n\n" +
-		"Please reply with the <b>Target GitHub Repository URL</b>\n" +
-		"<i>Example:</i> <code>https://github.com/SUDEEPBOTS/NewRebrandedRepo</code>"
+	promptText := fmt.Sprintf(
+		"<blockquote>🚀 <b>%s</b></blockquote>\n\n"+
+			"<blockquote>Please reply with the <b>Target GitHub Repository URL</b>\n"+
+			"<i>Example:</i> <code>https://github.com/SUDEEPBOTS/NewRebrandedRepo</code></blockquote>",
+		renamer.ToBoldSerif("Deploy to GitHub"),
+	)
 
 	edit := tgbotapi.NewEditMessageText(chatID, messageID, promptText)
 	edit.ParseMode = "HTML"

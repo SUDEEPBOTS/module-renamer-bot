@@ -8,7 +8,6 @@ import (
 	"strings"
 )
 
-// CloneRepo clones a git repository to a destination directory.
 func CloneRepo(repoURL, destDir string) error {
 	_ = os.RemoveAll(destDir)
 	cmd := exec.Command("git", "clone", "--depth", "1", repoURL, destDir)
@@ -19,16 +18,13 @@ func CloneRepo(repoURL, destDir string) error {
 	return nil
 }
 
-// PushToGitHub initializes a fresh git repository and pushes to GitHub.
 func PushToGitHub(dir, repoURL, token, commitMsg string) error {
-	// Remove existing .git for a clean standalone push
 	_ = os.RemoveAll(fmt.Sprintf("%s/.git", dir))
 
 	if commitMsg == "" {
 		commitMsg = "feat: project rebranded via SUDEEPBOTS Module Renamer"
 	}
 
-	// Format authenticated URL
 	authURL := repoURL
 	if token != "" {
 		trimmed := strings.TrimPrefix(repoURL, "https://")

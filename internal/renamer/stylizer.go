@@ -2,7 +2,6 @@ package renamer
 
 import "strings"
 
-// StyledBoldSerifMap maps ASCII chars to Mathematical Bold Serif runes.
 var StyledBoldSerifMap = map[rune]rune{
 	'A': '𝐀', 'B': '𝐁', 'C': '𝐂', 'D': '𝐃', 'E': '𝐄', 'F': '𝐅', 'G': '𝐆',
 	'H': '𝐇', 'I': '𝐈', 'J': '𝐉', 'K': '𝐊', 'L': '𝐋', 'M': '𝐌', 'N': '𝐍',
@@ -16,7 +15,6 @@ var StyledBoldSerifMap = map[rune]rune{
 	'7': '𝟕', '8': '𝟖', '9': '𝟗',
 }
 
-// CustomFancyMap maps to the aesthetic font shown in user example (e.g. 𝐒υᴘᴘσꝛᴛ).
 var CustomFancyMap = map[rune]rune{
 	'S': '𝐒', 's': 'ѕ',
 	'u': 'υ', 'U': '𝐔',
@@ -36,9 +34,12 @@ var CustomFancyMap = map[rune]rune{
 	'c': 'ᴄ', 'C': '𝐂',
 	'k': 'ᴋ', 'K': '𝐊',
 	'y': 'ʏ', 'Y': '𝐘',
+	'w': 'ᴡ', 'W': '𝐖',
+	'x': 'x', 'X': '𝐗',
+	'v': 'ᴠ', 'V': '𝐕',
+	'g': 'ɢ', 'G': '𝐆',
 }
 
-// ToBoldSerif converts an ASCII string to Mathematical Bold Serif.
 func ToBoldSerif(text string) string {
 	var sb strings.Builder
 	for _, r := range text {
@@ -51,7 +52,6 @@ func ToBoldSerif(text string) string {
 	return sb.String()
 }
 
-// ToAestheticFancy converts a string to the user-requested aesthetic font style (e.g. 𝐒υᴘᴘσꝛᴛ).
 func ToAestheticFancy(text string) string {
 	var sb strings.Builder
 	for _, r := range text {
