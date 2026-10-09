@@ -1,0 +1,34 @@
+name: Go CI Suite
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ "1.23", "1.24" ]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Verify Dependencies
+        run: go mod verify
+
+      - name: Run Unit Tests
+        run: go test -v ./...
+
+      - name: Build Binary
+        run: go build -v -o bin/module-renamer-bot cmd/bot/main.go

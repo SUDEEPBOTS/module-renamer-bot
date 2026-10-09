@@ -1,0 +1,25 @@
+# Binaries and compiled objects
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Environment and sensitive secrets
+.env
+.env.local
+*.session
+*.session-journal
+
+# Temporary work directories
+/tmp/renamer_work
+work/
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

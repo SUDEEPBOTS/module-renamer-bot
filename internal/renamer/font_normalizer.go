@@ -1,0 +1,110 @@
+package renamer
+
+import "strings"
+
+// UnicodeLookalikeMap maps stylized Unicode runes to standard ASCII runes.
+var UnicodeLookalikeMap = map[rune]rune{
+	// Mathematical Bold Serif (A-Z)
+	'𝐀': 'A', '𝐁': 'B', '𝐂': 'C', '𝐃': 'D', '𝐄': 'E', '𝐅': 'F', '𝐆': 'G',
+	'𝐇': 'H', '𝐈': 'I', '𝐉': 'J', '𝐊': 'K', '𝐋': 'L', '𝐌': 'M', '𝐍': 'N',
+	'𝐎': 'O', '𝐏': 'P', '𝐐': 'Q', '𝐑': 'R', '𝐒': 'S', '𝐓': 'T', '𝐔': 'U',
+	'𝐕': 'V', '𝐖': 'W', '𝐗': 'X', '𝐘': 'Y', '𝐙': 'Z',
+	// Mathematical Bold Serif (a-z)
+	'𝐚': 'a', '𝐛': 'b', '𝐜': 'c', '𝐝': 'd', '𝐞': 'e', '𝐟': 'f', '𝐠': 'g',
+	'𝐡': 'h', '𝐢': 'i', '𝐣': 'j', '𝐤': 'k', '𝐥': 'l', '𝐦': 'm', '𝐧': 'n',
+	'𝐨': 'o', '𝐩': 'p', '𝐪': 'q', '𝐫': 'r', '𝐬': 's', '𝐭': 't', '𝐮': 'u',
+	'𝐯': 'v', '𝐰': 'w', '𝐱': 'x', '𝐲': 'y', '𝐳': 'z',
+
+	// Mathematical Bold Sans-Serif (A-Z)
+	'𝗔': 'A', '𝗕': 'B', '𝗖': 'C', '𝗗': 'D', '𝗘': 'E', '𝗙': 'F', '𝗚': 'G',
+	'𝗛': 'H', '𝗜': 'I', '𝗝': 'J', '𝗞': 'K', '𝗟': 'L', '𝗠': 'M', '𝗡': 'N',
+	'𝗢': 'O', '𝗣': 'P', '𝗤': 'Q', '𝗥': 'R', '𝗦': 'S', '𝗧': 'T', '𝗨': 'U',
+	'𝗩': 'V', '𝗪': 'W', '𝗫': 'X', '𝗬': 'Y', '𝗭': 'Z',
+	// Mathematical Bold Sans-Serif (a-z)
+	'𝗮': 'a', '𝗯': 'b', '𝗰': 'c', '𝗱': 'd', '𝗲': 'e', '𝗳': 'f', '𝗴': 'g',
+	'𝗵': 'h', '𝗶': 'i', '𝗷': 'j', '𝗸': 'k', '𝗹': 'l', '𝗺': 'm', '𝗻': 'n',
+	'𝗼': 'o', '𝗽': 'p', '𝗾': 'q', '𝗿': 'r', '𝘀': 's', '𝘁': 't', '𝘂': 'u',
+	'𝘃': 'v', '𝘄': 'w', '𝘅': 'x', '𝘆': 'y', '𝘇': 'z',
+
+	// Mathematical Bold Italic (A-Z)
+	'𝑨': 'A', '𝑩': 'B', '𝑪': 'C', '𝑫': 'D', '𝑬': 'E', '𝑭': 'F', '𝑮': 'G',
+	'𝑯': 'H', '𝑰': 'I', '𝑱': 'J', '𝑲': 'K', '𝑳': 'L', '𝑴': 'M', '𝑵': 'N',
+	'𝑶': 'O', '𝑷': 'P', '𝑸': 'Q', '𝑹': 'R', '𝑺': 'S', '𝑻': 'T', '𝑼': 'U',
+	'𝑽': 'V', '𝑾': 'W', '𝑿': 'X', '𝒀': 'Y', '𝒁': 'Z',
+	// Mathematical Bold Italic (a-z)
+	'𝒂': 'a', '𝒃': 'b', '𝒄': 'c', '𝒅': 'd', '𝒆': 'e', '𝒇': 'f', '𝒈': 'g',
+	'𝒉': 'h', '𝒊': 'i', '𝒋': 'j', '𝒌': 'k', '𝒍': 'l', '𝒎': 'm', '𝒏': 'n',
+	'𝒐': 'o', '𝒑': 'p', '𝒒': 'q', '𝒓': 'r', '𝒔': 's', '𝒕': 't', '𝒖': 'u',
+	'𝒗': 'v', '𝒘': 'w', '𝒙': 'x', '𝒚': 'y', '𝒛': 'z',
+
+	// Small Capitals (latin lookalikes)
+	'ᴀ': 'a', 'ʙ': 'b', 'ᴄ': 'c', 'ᴅ': 'd', 'ᴇ': 'e', 'ꜰ': 'f', 'ɢ': 'g',
+	'ʜ': 'h', 'ɪ': 'i', 'ᴊ': 'j', 'ᴋ': 'k', 'ʟ': 'l', 'ᴍ': 'm', 'ɴ': 'n',
+	'ᴏ': 'o', 'ᴘ': 'p', 'ǫ': 'q', 'ʀ': 'r', 'ꜱ': 's', 'ᴛ': 't', 'ᴜ': 'u',
+	'ᴠ': 'v', 'ᴡ': 'w', 'x': 'x', 'ʏ': 'y', 'ᴢ': 'z',
+
+	// Greek & stylized homoglyphs (e.g., 𝐒υᴘᴘσꝛᴛ)
+	'υ': 'u', 'σ': 'o', 'ꝛ': 'r', 'ɩ': 'i', 'ι': 'i', 'α': 'a', 'β': 'b',
+	'ε': 'e', 'η': 'n', 'к': 'k', 'м': 'm', 'т': 't', 'ѕ': 's', 'ѵ': 'v',
+	'і': 'i', 'а': 'a', 'е': 'e', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x',
+	'ο': 'o', 'ρ': 'p', 'ω': 'w', 'ν': 'v',
+
+	// Fullwidth Characters
+	'Ａ': 'A', 'Ｂ': 'B', 'Ｃ': 'C', 'Ｄ': 'D', 'Ｅ': 'E', 'Ｆ': 'F', 'Ｇ': 'G',
+	'Ｈ': 'H', 'Ｉ': 'I', 'Ｊ': 'J', 'Ｋ': 'K', 'Ｌ': 'L', 'Ｍ': 'M', 'Ｎ': 'N',
+	'Ｏ': 'O', 'Ｐ': 'P', 'Ｑ': 'Q', 'Ｒ': 'R', 'Ｓ': 'S', 'Ｔ': 'T', 'Ｕ': 'U',
+	'Ｖ': 'V', 'Ｗ': 'W', 'Ｘ': 'X', 'Ｙ': 'Y', 'Ｚ': 'Z',
+	'ａ': 'a', 'ｂ': 'b', 'ｃ': 'c', 'ｄ': 'd', 'ｅ': 'e', 'ｆ': 'f', 'ｇ': 'g',
+	'ｈ': 'h', 'ｉ': 'i', 'ｊ': 'j', 'ｋ': 'k', 'ｌ': 'l', 'ｍ': 'm', 'ｎ': 'n',
+	'ｏ': 'o', 'ｐ': 'p', 'ｑ': 'q', 'ｒ': 'r', 'ｓ': 's', 'ｔ': 't', 'ｕ': 'u',
+	'ｖ': 'v', 'ｗ': 'w', 'ｘ': 'x', 'ｙ': 'y', 'ｚ': 'z',
+}
+
+// NormalizeToASCII converts stylized Unicode characters to plain ASCII lowercase/uppercase.
+func NormalizeToASCII(text string) string {
+	var sb strings.Builder
+	for _, r := range text {
+		if mapped, ok := UnicodeLookalikeMap[r]; ok {
+			sb.WriteRune(mapped)
+		} else {
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
+}
+
+// NormalizeRune converts a single rune to its ASCII base rune if stylized.
+func NormalizeRune(r rune) rune {
+	if mapped, ok := UnicodeLookalikeMap[r]; ok {
+		return mapped
+	}
+	return r
+}
+
+// CaseVariant holds different casing forms of a target string.
+type CaseVariant struct {
+	Original   string
+	Upper      string
+	Lower      string
+	Title      string
+	Camel      string
+	Snake      string
+	Kebab      string
+	Normalized string
+}
+
+// NewCaseVariant generates all practical case formats of a word.
+func NewCaseVariant(word string) CaseVariant {
+	norm := strings.TrimSpace(word)
+	upper := strings.ToUpper(norm)
+	lower := strings.ToLower(norm)
+	title := strings.Title(lower) // e.g. "Yukki"
+
+	return CaseVariant{
+		Original:   word,
+		Upper:      upper,
+		Lower:      lower,
+		Title:      title,
+		Normalized: NormalizeToASCII(word),
+	}
+}
