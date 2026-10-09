@@ -17,7 +17,12 @@ import (
 
 const Banner = `
 ========================================================================
-  SUDEEPBOTS MODULE RENAMER & CODE REFACTORING ENGINE (GOLANG)
+  SUDEEPBOTS MODULE RENAMER & CODE REFACTORING ENGINE
+  Copyright (C) 2026 SUDEEPBOTS <https://github.com/SUDEEPBOTS>
+  Licensed under the MIT License
+
+  Star the repository on GitHub if you find this project useful:
+  https://github.com/SUDEEPBOTS/module-renamer-bot
 ========================================================================
 `
 
@@ -53,9 +58,12 @@ func main() {
 		logger.LogInfo("DATABASE", "In-Memory storage engine initialized (MONGO_URI not provided)")
 	}
 
+	logger.LogInfo("SERVICE", "Service state: OPERATIONAL")
+	logger.LogInfo("PROJECT", "Repository: https://github.com/SUDEEPBOTS/module-renamer-bot (Please star on GitHub)")
+
 	if cfg.BotToken == "" {
 		fmt.Println("[NOTICE] BOT_TOKEN is not configured in environment or .env file.")
-		fmt.Println("[NOTICE] Health check server is online on PORT for uptime monitoring.")
+		fmt.Println("[NOTICE] Health check endpoint operational on configured PORT for uptime monitoring.")
 		fmt.Println("[NOTICE] Set BOT_TOKEN to activate Telegram Bot mode.")
 		fmt.Println("[NOTICE] Waiting for configuration or OS interrupt...")
 

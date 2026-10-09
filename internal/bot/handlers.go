@@ -16,17 +16,18 @@ import (
 )
 
 type SessionState struct {
-	ID         string
-	UserID     int64
-	Username   string
-	Step       string
-	RepoURL    string
-	LocalDir   string
-	OldName    string
-	NewName    string
-	ZipPath    string
-	TargetRepo string
-	Token      string
+	ID          string
+	UserID      int64
+	Username    string
+	Step        string
+	RepoURL     string
+	LocalDir    string
+	OldName     string
+	NewName     string
+	ZipPath     string
+	TargetRepo  string
+	Token       string
+	AuthorQuery string
 }
 
 type SessionManager struct {
@@ -97,6 +98,10 @@ func (b *Bot) HandleMessage(msg *tgbotapi.Message) {
 		case "rename":
 			b.promptRename(msg.Chat.ID, userID, msg.From.UserName)
 			return
+		case "author", "findname", "scan":
+			args := strings.TrimSpace(msg.CommandArguments())
+			b.promptAuthor(msg.Chat.ID, userID, msg.From.UserName, args)
+			return
 		case "cancel":
 			b.sm.Clear(userID)
 			reply := tgbotapi.NewMessage(msg.Chat.ID, "<blockquote>✅ <b>Active refactoring task cancelled and temporary workspace deleted.</b></blockquote>")
@@ -141,6 +146,7 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 			"<blockquote expandable><b>Engine Specifications:</b>\n"+
 			"• 🔄 <b>Universal Scanning:</b> Python, Go, JS, TS, Rust, C++, Java, configs\n"+
 			"• 🔡 <b>Unicode Font Bypasser:</b> Decodes & renames stylized fonts (e.g. ʏᴜᴋᴋɪ, 𝐘𝐮𝐤𝐤𝐢)\n"+
+			"• 🔍 <b>Author & Identifier Scanner:</b> Detects author names across all formats\n"+
 			"• 📁 <b>Bottom-Up Restructuring:</b> Deepest-level file and directory path renames\n"+
 			"• 📦 <b>Flexible Export:</b> Direct .ZIP document or automated GitHub push!</blockquote>\n\n"+
 			"<blockquote>👇 <i>Paste a public GitHub link or send a .zip archive to begin!</i></blockquote>",
@@ -167,7 +173,8 @@ func (b *Bot) sendHelpPage(chatID int64, messageID int, page int) {
 				"• Send a public GitHub URL (e.g. <code>https://github.com/owner/repo</code>)\n"+
 				"• OR upload a <code>.zip</code> source archive directly to this chat.\n"+
 				"• Enter the exact <b>Old Module Name</b> (e.g. <code>Yukki</code>).\n"+
-				"• Enter your desired <b>New Module Name</b> (e.g. <code>Pulse</code>).</blockquote>\n\n"+
+				"• Enter your desired <b>New Module Name</b> (e.g. <code>Pulse</code>).\n"+
+				"• Or scan/replace author names using <code>/author &lt;name&gt;</code>.</blockquote>\n\n"+
 				"<blockquote expandable><b>Supported Language Syntax:</b>\n"+
 				"Python (.py), Golang (.go), JavaScript/TypeScript (.js, .ts), Rust (.rs), C/C++ (.c, .cpp, .h), Java (.java), Shell (.sh), Markdown (.md), JSON, YAML, Dockerfile, Makefile, and Environment (.env) files.</blockquote>",
 			title,
@@ -236,7 +243,120 @@ func (b *Bot) promptRename(chatID int64, userID int64, username string) {
 	_, _ = b.api.Send(reply)
 }
 
+func (b *Bot) promptAuthor(chatID int64, userID int64, username string, targetName string) {
+	session := b.sm.Get(userID)
+	if session == nil {
+		sessionID := fmt.Sprintf("sess_%d_%d", userID, time.Now().Unix())
+		session = &SessionState{
+			ID:       sessionID,
+			UserID:   userID,
+			Username: username,
+		}
+		b.sm.Set(userID, session)
+	}
+
+	if targetName == "" {
+		session.Step = "AWAITING_AUTHOR_TARGET"
+		text := fmt.Sprintf(
+			"<blockquote>🔍 <b>%s</b></blockquote>\n\n"+
+				"<blockquote>Please reply with the <b>author name, handle, or identifier</b> to scan for in the codebase:\n"+
+				"<i>Example:</i> <code>Rahul</code> or stylized <code>𝐑ᴀʜυʟ</code></blockquote>",
+			renamer.ToBoldSerif("Scan Author / Custom Identifier"),
+		)
+		reply := tgbotapi.NewMessage(chatID, text)
+		reply.ParseMode = "HTML"
+		_, _ = b.api.Send(reply)
+		return
+	}
+
+	session.AuthorQuery = targetName
+	if session.LocalDir == "" {
+		session.Step = "AWAITING_AUTHOR_SOURCE"
+		text := fmt.Sprintf(
+			"<blockquote>🔍 <b>Target Configured:</b> <code>%s</code></blockquote>\n\n"+
+				"<blockquote>Please send the <b>GitHub Repository URL</b> or upload a <b>.zip</b> archive to scan for this identifier.</blockquote>",
+			targetName,
+		)
+		reply := tgbotapi.NewMessage(chatID, text)
+		reply.ParseMode = "HTML"
+		_, _ = b.api.Send(reply)
+		return
+	}
+
+	b.executeAuthorScan(chatID, session, targetName)
+}
+
+func (b *Bot) executeAuthorScan(chatID int64, session *SessionState, targetName string) {
+	statusMsg := tgbotapi.NewMessage(chatID, fmt.Sprintf("<blockquote>🔍 <b>Scanning codebase for '%s' (including Unicode lookalikes)...</b></blockquote>", targetName))
+	statusMsg.ParseMode = "HTML"
+	sent, _ := b.api.Send(statusMsg)
+
+	engine := renamer.NewEngine()
+	report, err := engine.FindOccurrences(renamer.FindOptions{
+		TargetDir:    session.LocalDir,
+		SearchTerm:   targetName,
+		IncludeFonts: true,
+	})
+	if err != nil {
+		b.sendAIErrorBlock(chatID, sent.MessageID, "Author Codebase Scanning", err)
+		return
+	}
+
+	if report.TotalHits == 0 {
+		text := fmt.Sprintf(
+			"<blockquote>🔍 <b>%s</b></blockquote>\n\n"+
+				"<blockquote>• <b>Target Query:</b> <code>%s</code>\n"+
+				"• <b>Matches Found:</b> <code>0</code> occurrences\n\n"+
+				"No occurrences of this identifier were detected across the codebase.</blockquote>",
+			renamer.ToBoldSerif("Scan Telemetry"),
+			targetName,
+		)
+		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
+		edit.ParseMode = "HTML"
+		_, _ = b.api.Send(edit)
+		return
+	}
+
+	var fileList []string
+	maxShow := 8
+	for i, h := range report.Hits {
+		if i >= maxShow {
+			fileList = append(fileList, fmt.Sprintf("<i>... and %d more files</i>", len(report.Hits)-maxShow))
+			break
+		}
+		fileList = append(fileList, fmt.Sprintf("• <code>%s</code> (%d hits)", h.Path, h.Count))
+	}
+
+	text := fmt.Sprintf(
+		"<blockquote>🔍 <b>%s</b></blockquote>\n\n"+
+			"<blockquote><b>Scan Detection Telemetry:</b>\n"+
+			"• <b>Target Query:</b> <code>%s</code>\n"+
+			"• <b>Total Matches:</b> <code>%d</code> occurrences\n"+
+			"• <b>Affected Files:</b> <code>%d</code> files</blockquote>\n\n"+
+			"<blockquote expandable><b>File Locations:</b>\n%s</blockquote>\n\n"+
+			"<blockquote>Do you wish to replace all occurrences across the codebase?</blockquote>",
+		renamer.ToBoldSerif("Author Occurrences Detected"),
+		targetName,
+		report.TotalHits,
+		report.FilesCount,
+		strings.Join(fileList, "\n"),
+	)
+
+	edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
+	edit.ParseMode = "HTML"
+	markup := MakeConfirmAuthorKeyboard(session.ID)
+	edit.ReplyMarkup = &markup
+	_, _ = b.api.Send(edit)
+}
+
 func (b *Bot) handleRepoLink(chatID int64, userID int64, username, repoURL string) {
+	existing := b.sm.Get(userID)
+	isAuthorScan := existing != nil && (existing.Step == "AWAITING_AUTHOR_SOURCE" || existing.AuthorQuery != "")
+	authorQuery := ""
+	if isAuthorScan && existing != nil {
+		authorQuery = existing.AuthorQuery
+	}
+
 	b.sm.Clear(userID)
 	sessionID := fmt.Sprintf("sess_%d_%d", userID, time.Now().Unix())
 	workDir := filepath.Join(b.cfg.WorkDir, sessionID)
@@ -252,14 +372,23 @@ func (b *Bot) handleRepoLink(chatID int64, userID int64, username, repoURL strin
 		return
 	}
 
-	b.sm.Set(userID, &SessionState{
-		ID:       sessionID,
-		UserID:   userID,
-		Username: username,
-		Step:     "AWAITING_OLD_NAME",
-		RepoURL:  repoURL,
-		LocalDir: workDir,
-	})
+	session := &SessionState{
+		ID:          sessionID,
+		UserID:      userID,
+		Username:    username,
+		RepoURL:     repoURL,
+		LocalDir:    workDir,
+		AuthorQuery: authorQuery,
+	}
+	b.sm.Set(userID, session)
+
+	if isAuthorScan && authorQuery != "" {
+		_, _ = b.api.Request(tgbotapi.NewDeleteMessage(chatID, sent.MessageID))
+		b.executeAuthorScan(chatID, session, authorQuery)
+		return
+	}
+
+	session.Step = "AWAITING_OLD_NAME"
 
 	text := "<blockquote>✅ <b>Repository cloned successfully!</b></blockquote>\n\n" +
 		"<blockquote>🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
@@ -280,6 +409,13 @@ func (b *Bot) handleZipUpload(msg *tgbotapi.Message) {
 		reply.ParseMode = "HTML"
 		_, _ = b.api.Send(reply)
 		return
+	}
+
+	existing := b.sm.Get(userID)
+	isAuthorScan := existing != nil && (existing.Step == "AWAITING_AUTHOR_SOURCE" || existing.AuthorQuery != "")
+	authorQuery := ""
+	if isAuthorScan && existing != nil {
+		authorQuery = existing.AuthorQuery
 	}
 
 	b.sm.Clear(userID)
@@ -325,13 +461,22 @@ func (b *Bot) handleZipUpload(msg *tgbotapi.Message) {
 		return
 	}
 
-	b.sm.Set(userID, &SessionState{
-		ID:       sessionID,
-		UserID:   userID,
-		Username: username,
-		Step:     "AWAITING_OLD_NAME",
-		LocalDir: extractedDir,
-	})
+	session := &SessionState{
+		ID:          sessionID,
+		UserID:      userID,
+		Username:    username,
+		LocalDir:    extractedDir,
+		AuthorQuery: authorQuery,
+	}
+	b.sm.Set(userID, session)
+
+	if isAuthorScan && authorQuery != "" {
+		_, _ = b.api.Request(tgbotapi.NewDeleteMessage(msg.Chat.ID, sent.MessageID))
+		b.executeAuthorScan(msg.Chat.ID, session, authorQuery)
+		return
+	}
+
+	session.Step = "AWAITING_OLD_NAME"
 
 	text := "<blockquote>✅ <b>Archive extracted successfully!</b></blockquote>\n\n" +
 		"<blockquote>🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
@@ -355,6 +500,76 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 			reply.ParseMode = "HTML"
 			_, _ = b.api.Send(reply)
 		}
+
+	case "AWAITING_AUTHOR_TARGET":
+		b.promptAuthor(chatID, session.UserID, session.Username, text)
+
+	case "AWAITING_AUTHOR_SOURCE":
+		if strings.HasPrefix(text, "http://") || strings.HasPrefix(text, "https://") {
+			b.handleRepoLink(chatID, msg.From.ID, msg.From.UserName, text)
+		} else {
+			reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Please provide a valid GitHub repository link or upload a .zip archive.</i></blockquote>")
+			reply.ParseMode = "HTML"
+			_, _ = b.api.Send(reply)
+		}
+
+	case "AWAITING_AUTHOR_REPLACEMENT":
+		session.NewName = text
+		session.Step = "AWAITING_DELIVERY_CHOICE"
+
+		statusMsg := tgbotapi.NewMessage(chatID, "<blockquote>⚙️ <b>Replacing occurrences and validating syntax...</b></blockquote>")
+		statusMsg.ParseMode = "HTML"
+		sent, _ := b.api.Send(statusMsg)
+
+		engine := renamer.NewEngine()
+		report, err := engine.Execute(renamer.RenameOptions{
+			TargetDir:    session.LocalDir,
+			OldName:      session.AuthorQuery,
+			NewName:      session.NewName,
+			IncludeFonts: true,
+		})
+
+		if err != nil {
+			logger.LogRenameFailure(session.UserID, session.Username, err)
+			b.sendAIErrorBlock(chatID, sent.MessageID, "Author Replacement Engine", err)
+			return
+		}
+
+		syntaxRes := renamer.VerifyDirectorySyntax(session.LocalDir)
+		var syntaxSummary string
+		if len(syntaxRes.Warnings) == 0 {
+			syntaxSummary = fmt.Sprintf("• <b>Syntax Integrity:</b> <code>100%% Valid (%d files checked)</code>", syntaxRes.Passed)
+		} else {
+			syntaxSummary = fmt.Sprintf("• <b>Syntax Integrity:</b> <code>%d passed, %d warnings</code>", syntaxRes.Passed, len(syntaxRes.Warnings))
+		}
+
+		_ = b.db.IncrementRenames()
+		logger.LogRenameSuccess(session.UserID, session.Username, session.AuthorQuery, session.NewName, report.FilesScanned, report.FilesModified, report.ReplacementsCount, report.DirectoriesRenamed+report.FilesRenamed)
+
+		resultText := fmt.Sprintf(
+			"<blockquote>🎉 <b>%s</b></blockquote>\n\n"+
+				"<blockquote><b>Replacement Telemetry:</b>\n"+
+				"• <b>Target Old:</b> <code>%s</code>\n"+
+				"• <b>Target New:</b> <code>%s</code>\n"+
+				"• <b>Occurrences Replaced:</b> <code>%d</code>\n"+
+				"• <b>Files Modified:</b> <code>%d</code>\n"+
+				"• <b>Paths Renamed:</b> <code>%d</code>\n"+
+				"%s</blockquote>\n\n"+
+				"<blockquote>📦 <b>Select your delivery method below:</b></blockquote>",
+			renamer.ToBoldSerif("Author Replacement Completed"),
+			session.AuthorQuery,
+			session.NewName,
+			report.ReplacementsCount,
+			report.FilesModified,
+			report.DirectoriesRenamed+report.FilesRenamed,
+			syntaxSummary,
+		)
+
+		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, resultText)
+		edit.ParseMode = "HTML"
+		markup := MakeDeliveryChoiceKeyboard(session.ID)
+		edit.ReplyMarkup = &markup
+		_, _ = b.api.Send(edit)
 
 	case "AWAITING_OLD_NAME":
 		session.OldName = text
@@ -393,6 +608,14 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 			return
 		}
 
+		syntaxRes := renamer.VerifyDirectorySyntax(session.LocalDir)
+		var syntaxSummary string
+		if len(syntaxRes.Warnings) == 0 {
+			syntaxSummary = fmt.Sprintf("• <b>Syntax Integrity:</b> <code>100%% Valid (%d files checked)</code>", syntaxRes.Passed)
+		} else {
+			syntaxSummary = fmt.Sprintf("• <b>Syntax Integrity:</b> <code>%d passed, %d warnings</code>", syntaxRes.Passed, len(syntaxRes.Warnings))
+		}
+
 		_ = b.db.IncrementRenames()
 		logger.LogRenameSuccess(session.UserID, session.Username, session.OldName, session.NewName, report.FilesScanned, report.FilesModified, report.ReplacementsCount, report.DirectoriesRenamed+report.FilesRenamed)
 
@@ -404,7 +627,8 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 				"• <b>Files Scanned:</b> <code>%d</code>\n"+
 				"• <b>Files Modified:</b> <code>%d</code>\n"+
 				"• <b>Occurrences Replaced:</b> <code>%d</code>\n"+
-				"• <b>Paths/Directories Renamed:</b> <code>%d</code></blockquote>\n\n"+
+				"• <b>Paths/Directories Renamed:</b> <code>%d</code>\n"+
+				"%s</blockquote>\n\n"+
 				"<blockquote>📦 <b>Select your delivery method below:</b></blockquote>",
 			renamer.ToBoldSerif("Renaming Completed Successfully"),
 			session.OldName,
@@ -413,6 +637,7 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 			report.FilesModified,
 			report.ReplacementsCount,
 			report.DirectoriesRenamed+report.FilesRenamed,
+			syntaxSummary,
 		)
 
 		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, resultText)
@@ -447,7 +672,11 @@ func (b *Bot) executeGitHubPush(chatID int64, session *SessionState, token strin
 	statusMsg.ParseMode = "HTML"
 	sent, _ := b.api.Send(statusMsg)
 
-	commitMsg := fmt.Sprintf("feat: rebrand %s to %s via SUDEEPBOTS Module Renamer", session.OldName, session.NewName)
+	oldLabel := session.OldName
+	if oldLabel == "" {
+		oldLabel = session.AuthorQuery
+	}
+	commitMsg := fmt.Sprintf("feat: rebrand %s to %s via SUDEEPBOTS Module Renamer", oldLabel, session.NewName)
 	err := vcs.PushToGitHub(session.LocalDir, session.TargetRepo, token, commitMsg)
 
 	if err != nil {

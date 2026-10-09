@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"unicode"
@@ -26,6 +25,24 @@ type RenameReport struct {
 	ReplacementsCount  int
 	DirectoriesRenamed int
 	FilesRenamed       int
+}
+
+type FindOptions struct {
+	TargetDir    string
+	SearchTerm   string
+	IncludeFonts bool
+}
+
+type FileHit struct {
+	Path  string
+	Count int
+}
+
+type FindReport struct {
+	Query      string
+	TotalHits  int
+	FilesCount int
+	Hits       []FileHit
 }
 
 var DefaultIgnoredDirs = []string{
@@ -78,6 +95,70 @@ func (e *Engine) Execute(opts RenameOptions) (*RenameReport, error) {
 	if err != nil {
 		return report, err
 	}
+
+	return report, nil
+}
+
+func (e *Engine) FindOccurrences(opts FindOptions) (*FindReport, error) {
+	report := &FindReport{
+		Query: opts.SearchTerm,
+	}
+
+	normQuery := NormalizeToASCII(opts.SearchTerm)
+	lowerQuery := strings.ToLower(normQuery)
+	if lowerQuery == "" {
+		return report, nil
+	}
+
+	hitMap := make(map[string]int)
+
+	err := filepath.Walk(opts.TargetDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		if info.IsDir() {
+			if e.ignoredDirs[info.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		ext := strings.ToLower(filepath.Ext(path))
+		if DefaultBinaryExtensions[ext] {
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil || isBinary(data) {
+			return nil
+		}
+
+		content := string(data)
+		normContent := strings.ToLower(NormalizeToASCII(content))
+
+		count := strings.Count(normContent, lowerQuery)
+		if count > 0 {
+			rel, _ := filepath.Rel(opts.TargetDir, path)
+			hitMap[rel] = count
+			report.TotalHits += count
+		}
+		return nil
+	})
+
+	if err != nil {
+		return report, err
+	}
+
+	report.FilesCount = len(hitMap)
+
+	for p, c := range hitMap {
+		report.Hits = append(report.Hits, FileHit{Path: p, Count: c})
+	}
+
+	sort.Slice(report.Hits, func(i, j int) bool {
+		return report.Hits[i].Count > report.Hits[j].Count
+	})
 
 	return report, nil
 }
@@ -238,22 +319,36 @@ func isBinary(data []byte) bool {
 }
 
 func replaceStylizedFonts(content, oldName, newName string, currentReplacements int) (string, int) {
-	normTarget := strings.ToLower(oldName)
-	if len(normTarget) == 0 {
+	normOld := NormalizeToASCII(oldName)
+	normNew := NormalizeToASCII(newName)
+	if len(normOld) == 0 {
 		return content, currentReplacements
 	}
 
-	re := regexp.MustCompile(`(?i)` + regexp.QuoteMeta(oldName))
-	matches := re.FindAllStringIndex(content, -1)
-	if len(matches) > 0 {
-		return content, currentReplacements
+	targets := []struct {
+		oldStr string
+		newStr string
+	}{
+		{ToAestheticFancy(normOld), ToAestheticFancy(normNew)},
+		{ToBoldSerif(normOld), ToBoldSerif(normNew)},
+		{ToBoldSerif(strings.ToUpper(normOld)), ToBoldSerif(strings.ToUpper(normNew))},
+		{ToBoldSerif(strings.ToLower(normOld)), ToBoldSerif(strings.ToLower(normNew))},
+		{ToBoldSerif(toTitleCase(normOld)), ToBoldSerif(toTitleCase(normNew))},
 	}
 
-	normalizedContent := NormalizeToASCII(content)
-	if strings.Contains(strings.ToLower(normalizedContent), normTarget) {
-		content = strings.ReplaceAll(content, ToAestheticFancy(oldName), ToAestheticFancy(newName))
-		content = strings.ReplaceAll(content, ToBoldSerif(oldName), ToBoldSerif(newName))
-		currentReplacements++
+	if oldName != normOld {
+		targets = append(targets, struct {
+			oldStr string
+			newStr string
+		}{oldName, newName})
+	}
+
+	for _, t := range targets {
+		if t.oldStr != "" && t.oldStr != t.newStr && strings.Contains(content, t.oldStr) {
+			count := strings.Count(content, t.oldStr)
+			content = strings.ReplaceAll(content, t.oldStr, t.newStr)
+			currentReplacements += count
+		}
 	}
 
 	return content, currentReplacements

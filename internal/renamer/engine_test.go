@@ -39,14 +39,11 @@ func TestEngineRenaming(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create test folder structure
 	subDir := filepath.Join(tempDir, "yukki_core")
 	_ = os.MkdirAll(subDir, 0755)
 
 	testFile1 := filepath.Join(subDir, "yukki_player.py")
-	content1 := `
-# Yukki Music Player
-class YukkiPlayer:
+	content1 := `class YukkiPlayer:
     def __init__(self):
         self.name = "YUKKIMUSIC"
         self.repo = "yukki/player"
@@ -73,7 +70,6 @@ class YukkiPlayer:
 		t.Errorf("Expected at least 1 modified file, got: %d", report.FilesModified)
 	}
 
-	// Verify file was renamed
 	newSubDir := filepath.Join(tempDir, "pulse_core")
 	if _, err := os.Stat(newSubDir); os.IsNotExist(err) {
 		t.Errorf("Expected folder 'pulse_core' to exist, but not found")
@@ -91,5 +87,38 @@ class YukkiPlayer:
 	}
 	if !strings.Contains(contentStr, "PULSEMUSIC") {
 		t.Errorf("Expected 'PULSEMUSIC' in renamed file, got: %s", contentStr)
+	}
+}
+
+func TestFindOccurrencesAndSyntax(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "finder_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	authorFile := filepath.Join(tempDir, "author.txt")
+	_ = os.WriteFile(authorFile, []byte("Developed by rahul and 𝐑ᴀʜυʟ"), 0644)
+
+	jsonFile := filepath.Join(tempDir, "config.json")
+	_ = os.WriteFile(jsonFile, []byte(`{"maintainer": "rahul"}`), 0644)
+
+	engine := NewEngine()
+	findRep, err := engine.FindOccurrences(FindOptions{
+		TargetDir:    tempDir,
+		SearchTerm:   "rahul",
+		IncludeFonts: true,
+	})
+	if err != nil {
+		t.Fatalf("FindOccurrences error: %v", err)
+	}
+
+	if findRep.TotalHits < 2 {
+		t.Errorf("Expected at least 2 hits for rahul, got: %d", findRep.TotalHits)
+	}
+
+	syntaxRes := VerifyDirectorySyntax(tempDir)
+	if len(syntaxRes.Warnings) != 0 {
+		t.Errorf("Expected 0 syntax warnings, got: %v", syntaxRes.Warnings)
 	}
 }

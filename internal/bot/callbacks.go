@@ -55,6 +55,33 @@ func (b *Bot) HandleCallbackQuery(query *tgbotapi.CallbackQuery) {
 		return
 	}
 
+	if data == "cmd_author_prompt" {
+		b.promptAuthor(chatID, userID, query.From.UserName, "")
+		return
+	}
+
+	if strings.HasPrefix(data, "author_replace:") {
+		session := b.sm.Get(userID)
+		if session == nil {
+			reply := tgbotapi.NewMessage(chatID, "<blockquote>⚠️ <i>Session expired. Please start over with /author or /rename.</i></blockquote>")
+			reply.ParseMode = "HTML"
+			_, _ = b.api.Send(reply)
+			return
+		}
+		session.Step = "AWAITING_AUTHOR_REPLACEMENT"
+		promptText := fmt.Sprintf(
+			"<blockquote>✍️ <b>%s</b></blockquote>\n\n"+
+				"<blockquote>Please reply with the <b>New Replacement Name</b> for <code>%s</code>:\n"+
+				"<i>Any font style or plain text is accepted (e.g. <code>SUDEEP</code> or <code>𝐒υᴅᴇᴇᴘ</code>).</i></blockquote>",
+			renamer.ToBoldSerif("Specify Replacement Name"),
+			session.AuthorQuery,
+		)
+		edit := tgbotapi.NewEditMessageText(chatID, messageID, promptText)
+		edit.ParseMode = "HTML"
+		_, _ = b.api.Send(edit)
+		return
+	}
+
 	if strings.HasPrefix(data, "admin_") || data == "cmd_admin_panel" {
 		if !b.cfg.IsSudo(userID) {
 			alert := tgbotapi.NewCallbackWithAlert(query.ID, "⛔ Access Denied: Sudo Administrators only.")
@@ -161,8 +188,13 @@ func (b *Bot) handleExportZip(chatID int64, messageID int, userID int64) {
 		return
 	}
 
+	oldLabel := session.OldName
+	if oldLabel == "" {
+		oldLabel = session.AuthorQuery
+	}
+
 	doc := tgbotapi.NewDocument(chatID, tgbotapi.FilePath(zipPath))
-	doc.Caption = fmt.Sprintf("<blockquote>✅ <b>Rebranded Project:</b> <code>%s</code>\nRebranded from <b>%s</b> to <b>%s</b> via SUDEEPBOTS Module Renamer ⚡</blockquote>", zipName, session.OldName, session.NewName)
+	doc.Caption = fmt.Sprintf("<blockquote>✅ <b>Rebranded Project:</b> <code>%s</code>\nReplaced <b>%s</b> with <b>%s</b> via SUDEEPBOTS Module Renamer ⚡</blockquote>", zipName, oldLabel, session.NewName)
 	doc.ParseMode = "HTML"
 
 	_, err = b.api.Send(doc)

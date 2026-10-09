@@ -15,6 +15,7 @@ func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubCha
 	channelBtnText := renamer.ToAestheticFancy("Channel")
 	helpBtnText := renamer.ToBoldSerif("Help & Commands")
 	renameBtnText := renamer.ToBoldSerif("Rename Codebase")
+	authorBtnText := renamer.ToAestheticFancy("Scan Author")
 
 	ownerLink := "https://t.me/" + strings.TrimPrefix(ownerUsername, "@")
 	supportLink := "https://t.me/" + strings.TrimPrefix(supportChat, "@")
@@ -36,9 +37,14 @@ func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubCha
 
 	row3 := []tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardButtonData("⚡ "+renameBtnText, "cmd_rename_prompt"),
-		tgbotapi.NewInlineKeyboardButtonData("📖 "+helpBtnText, "help_page_1"),
+		tgbotapi.NewInlineKeyboardButtonData("🔍 "+authorBtnText, "cmd_author_prompt"),
 	}
 	rows = append(rows, row3)
+
+	row4 := []tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardButtonData("📖 "+helpBtnText, "help_page_1"),
+	}
+	rows = append(rows, row4)
 
 	if isSudo {
 		adminBtnText := renamer.ToBoldSerif("Admin Panel")
@@ -49,6 +55,16 @@ func MakeStartKeyboard(isSudo bool, ownerUsername, repoURL, supportChat, fsubCha
 	}
 
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+}
+
+func MakeConfirmAuthorKeyboard(sessionID string) tgbotapi.InlineKeyboardMarkup {
+	replaceText := renamer.ToBoldSerif("Replace Name")
+	return tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("✍️ "+replaceText, "author_replace:"+sessionID),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "cancel:"+sessionID),
+		),
+	)
 }
 
 func MakeHelpKeyboard(page int) tgbotapi.InlineKeyboardMarkup {
