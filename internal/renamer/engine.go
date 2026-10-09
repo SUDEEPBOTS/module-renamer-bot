@@ -278,6 +278,14 @@ type ReplacementPair struct {
 	New string
 }
 
+func stripMusicSuffix(s string) string {
+	lower := strings.ToLower(s)
+	if strings.HasSuffix(lower, "music") && len(s) > 5 {
+		return s[:len(s)-5]
+	}
+	return s
+}
+
 func generateReplacementPairs(oldName, newName string) []ReplacementPair {
 	var pairs []ReplacementPair
 
@@ -290,16 +298,35 @@ func generateReplacementPairs(oldName, newName string) []ReplacementPair {
 	oldTitle := toTitleCase(oldName)
 	newTitle := toTitleCase(newName)
 
-	pairs = append(pairs, ReplacementPair{Old: oldUpper + "MUSIC", New: newUpper + "MUSIC"})
-	pairs = append(pairs, ReplacementPair{Old: oldLower + "music", New: newLower + "music"})
-	pairs = append(pairs, ReplacementPair{Old: oldTitle + "Music", New: newTitle + "Music"})
+	oldBase := stripMusicSuffix(oldName)
+	newBase := stripMusicSuffix(newName)
+
+	pairs = append(pairs, ReplacementPair{Old: strings.ToUpper(oldBase) + "MUSIC", New: strings.ToUpper(newBase) + "MUSIC"})
+	pairs = append(pairs, ReplacementPair{Old: strings.ToLower(oldBase) + "music", New: strings.ToLower(newBase) + "music"})
+	pairs = append(pairs, ReplacementPair{Old: toTitleCase(oldBase) + "Music", New: toTitleCase(newBase) + "Music"})
 
 	pairs = append(pairs, ReplacementPair{Old: oldUpper, New: newUpper})
 	pairs = append(pairs, ReplacementPair{Old: oldName, New: newName})
 	pairs = append(pairs, ReplacementPair{Old: oldTitle, New: newTitle})
 	pairs = append(pairs, ReplacementPair{Old: oldLower, New: newLower})
 
-	return pairs
+	if oldBase != oldName && newBase != "" {
+		pairs = append(pairs, ReplacementPair{Old: strings.ToUpper(oldBase), New: strings.ToUpper(newBase)})
+		pairs = append(pairs, ReplacementPair{Old: oldBase, New: newBase})
+		pairs = append(pairs, ReplacementPair{Old: toTitleCase(oldBase), New: toTitleCase(newBase)})
+		pairs = append(pairs, ReplacementPair{Old: strings.ToLower(oldBase), New: strings.ToLower(newBase)})
+	}
+
+	seen := make(map[string]bool)
+	var dedup []ReplacementPair
+	for _, p := range pairs {
+		if p.Old != "" && p.Old != p.New && !seen[p.Old] {
+			seen[p.Old] = true
+			dedup = append(dedup, p)
+		}
+	}
+
+	return dedup
 }
 
 func toTitleCase(s string) string {

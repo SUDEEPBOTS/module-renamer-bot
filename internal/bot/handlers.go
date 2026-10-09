@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -359,8 +360,9 @@ func (b *Bot) promptAuthor(chatID int64, userID int64, username string, targetNa
 	if session.LocalDir == "" {
 		session.Step = "AWAITING_AUTHOR_SOURCE"
 		text := fmt.Sprintf(
-			"<blockquote>🔍 <b>Target Configured:</b> <code>%s</code></blockquote>\n\n"+
+			"<blockquote>🔍 <b>%s:</b> <code>%s</code></blockquote>\n\n"+
 				"<blockquote>Please send the <b>GitHub Repository URL</b> or upload a <b>.zip</b> archive to scan for this identifier.</blockquote>",
+			renamer.ToSmallCaps("Author Query Configured"),
 			targetName,
 		)
 		reply := tgbotapi.NewMessage(chatID, text)
@@ -391,10 +393,11 @@ func (b *Bot) executeAuthorScan(chatID int64, session *SessionState, targetName 
 	if report.TotalHits == 0 {
 		text := fmt.Sprintf(
 			"<blockquote>🔍 <b>%s</b></blockquote>\n\n"+
-				"<blockquote>• <b>Target Query:</b> <code>%s</code>\n"+
+				"<blockquote>• <b>%s:</b> <code>%s</code>\n"+
 				"• <b>Matches Found:</b> <code>0</code> occurrences\n\n"+
 				"No occurrences of this identifier were detected across the codebase.</blockquote>",
 			renamer.ToSmallCaps("Scan Telemetry"),
+			renamer.ToSmallCaps("Search Query"),
 			targetName,
 		)
 		edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
@@ -416,12 +419,13 @@ func (b *Bot) executeAuthorScan(chatID int64, session *SessionState, targetName 
 	text := fmt.Sprintf(
 		"<blockquote>🔍 <b>%s</b></blockquote>\n\n"+
 			"<blockquote><b>Scan Detection Telemetry:</b>\n"+
-			"• <b>Target Query:</b> <code>%s</code>\n"+
+			"• <b>%s:</b> <code>%s</code>\n"+
 			"• <b>Total Matches:</b> <code>%d</code> occurrences\n"+
 			"• <b>Affected Files:</b> <code>%d</code> files</blockquote>\n\n"+
 			"<blockquote expandable><b>File Locations:</b>\n%s</blockquote>\n\n"+
 			"<blockquote>Do you wish to replace all occurrences across the codebase?</blockquote>",
 		renamer.ToSmallCaps("Author Occurrences Detected"),
+		renamer.ToSmallCaps("Search Query"),
 		targetName,
 		report.TotalHits,
 		report.FilesCount,
@@ -555,11 +559,25 @@ func (b *Bot) handleRepoLink(chatID int64, userID int64, username, repoURL strin
 		return
 	}
 
-	session.Step = "AWAITING_OLD_NAME"
+	detectedName := renamer.DetectModuleName(workDir, repoURL)
+	if detectedName == "" {
+		detectedName = "Yukki"
+	}
 
-	text := "<blockquote>✅ <b>Repository cloned successfully!</b></blockquote>\n\n" +
-		"<blockquote>🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
-		"<i>Example:</i> <code>Yukki</code> or <code>YUKKIMUSIC</code></blockquote>"
+	session.OldName = detectedName
+	session.Step = "AWAITING_NEW_NAME"
+
+	text := fmt.Sprintf(
+		"<blockquote>✅ <b>%s</b></blockquote>\n\n"+
+			"<blockquote>📦 <b>%s:</b> <code>%s</code>\n"+
+			"✨ <b>%s:</b>\n"+
+			"<i>Example:</i> <code>Pulse</code> <i>or</i> <code>PulseMusic</code>\n\n"+
+			"<i>(Or send <code>Old -> New</code> if you wish to override the module)</i></blockquote>",
+		renamer.ToSmallCaps("Repository Cloned Successfully"),
+		renamer.ToSmallCaps("Detected Module"),
+		detectedName,
+		renamer.ToSmallCaps("Enter New Module Name"),
+	)
 
 	edit := tgbotapi.NewEditMessageText(chatID, sent.MessageID, text)
 	edit.ParseMode = "HTML"
@@ -650,11 +668,25 @@ func (b *Bot) handleZipUpload(msg *tgbotapi.Message) {
 		return
 	}
 
-	session.Step = "AWAITING_OLD_NAME"
+	detectedName := renamer.DetectModuleName(extractedDir, "")
+	if detectedName == "" {
+		detectedName = "Yukki"
+	}
 
-	text := "<blockquote>✅ <b>Archive extracted successfully!</b></blockquote>\n\n" +
-		"<blockquote>🔍 <b>Step 1:</b> Enter the <b>OLD Name/Module</b> you wish to replace.\n" +
-		"<i>Example:</i> <code>Yukki</code></blockquote>"
+	session.OldName = detectedName
+	session.Step = "AWAITING_NEW_NAME"
+
+	text := fmt.Sprintf(
+		"<blockquote>✅ <b>%s</b></blockquote>\n\n"+
+			"<blockquote>📦 <b>%s:</b> <code>%s</code>\n"+
+			"✨ <b>%s:</b>\n"+
+			"<i>Example:</i> <code>Pulse</code> <i>or</i> <code>PulseMusic</code>\n\n"+
+			"<i>(Or send <code>Old -> New</code> if you wish to override the module)</i></blockquote>",
+		renamer.ToSmallCaps("Archive Extracted Successfully"),
+		renamer.ToSmallCaps("Detected Module"),
+		detectedName,
+		renamer.ToSmallCaps("Enter New Module Name"),
+	)
 
 	edit := tgbotapi.NewEditMessageText(msg.Chat.ID, sent.MessageID, text)
 	edit.ParseMode = "HTML"
@@ -782,15 +814,17 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 		resultText := fmt.Sprintf(
 			"<blockquote>🎉 <b>%s</b></blockquote>\n\n"+
 				"<blockquote><b>Replacement Telemetry:</b>\n"+
-				"• <b>Target Old:</b> <code>%s</code>\n"+
-				"• <b>Target New:</b> <code>%s</code>\n"+
+				"• <b>%s:</b> <code>%s</code>\n"+
+				"• <b>%s:</b> <code>%s</code>\n"+
 				"• <b>Occurrences Replaced:</b> <code>%d</code>\n"+
 				"• <b>Files Modified:</b> <code>%d</code>\n"+
 				"• <b>Paths Renamed:</b> <code>%d</code>\n"+
 				"%s</blockquote>\n\n"+
 				"<blockquote>📦 <b>Select your delivery method below:</b></blockquote>",
 			renamer.ToSmallCaps("Author Replacement Completed"),
+			renamer.ToSmallCaps("Original Identifier"),
 			session.AuthorQuery,
+			renamer.ToSmallCaps("New Identifier"),
 			session.NewName,
 			report.ReplacementsCount,
 			report.FilesModified,
@@ -808,17 +842,74 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 		session.OldName = text
 		session.Step = "AWAITING_NEW_NAME"
 		replyText := fmt.Sprintf(
-			"<blockquote>✅ <b>Target Recorded:</b> <code>%s</code></blockquote>\n\n"+
-				"<blockquote>✨ <b>Step 2:</b> Enter the <b>NEW Name/Module</b> to replace with.\n"+
-				"<i>Example:</i> <code>Pulse</code></blockquote>",
+			"<blockquote>✅ <b>%s:</b> <code>%s</code></blockquote>\n\n"+
+				"<blockquote>✨ <b>%s:</b>\n"+
+				"<i>Example:</i> <code>Pulse</code> <i>or</i> <code>PulseMusic</code></blockquote>",
+			renamer.ToSmallCaps("Module Selected"),
 			text,
+			renamer.ToSmallCaps("Enter New Module Name"),
 		)
 		reply := tgbotapi.NewMessage(chatID, replyText)
 		reply.ParseMode = "HTML"
 		_, _ = b.api.Send(reply)
 
 	case "AWAITING_NEW_NAME":
-		session.NewName = text
+		var oldPart, newPart string
+		if strings.Contains(text, "->") {
+			parts := strings.SplitN(text, "->", 2)
+			oldPart = strings.TrimSpace(parts[0])
+			newPart = strings.TrimSpace(parts[1])
+		} else if strings.Contains(text, "=>") {
+			parts := strings.SplitN(text, "=>", 2)
+			oldPart = strings.TrimSpace(parts[0])
+			newPart = strings.TrimSpace(parts[1])
+		} else if reTo := regexp.MustCompile(`(?i)\s+to\s+`); reTo.MatchString(text) {
+			parts := reTo.Split(text, 2)
+			oldPart = strings.TrimSpace(parts[0])
+			newPart = strings.TrimSpace(parts[1])
+		} else if reOr := regexp.MustCompile(`(?i)\s+or\s+`); reOr.MatchString(text) {
+			parts := reOr.Split(text, 2)
+			part0 := strings.TrimSpace(parts[0])
+			part1 := strings.TrimSpace(parts[1])
+			if (session.OldName != "" && (strings.EqualFold(part0, session.OldName) || strings.EqualFold(part1, session.OldName))) ||
+				(strings.EqualFold(part0, "Yukki") || strings.EqualFold(part1, "Yukki") || strings.EqualFold(part0, "YukkiMusic") || strings.EqualFold(part1, "YukkiMusic")) {
+				replyText := fmt.Sprintf(
+					"<blockquote>⚠️ <b><code>%s</code> %s</b>\n\n"+
+						"<b>%s:</b>\n"+
+						"<i>Example:</i> <code>Pulse</code> <i>or</i> <code>PulseMusic</code></blockquote>",
+					session.OldName,
+					renamer.ToSmallCaps("is the currently detected module"),
+					renamer.ToSmallCaps("Please Enter The New Module Name"),
+				)
+				reply := tgbotapi.NewMessage(chatID, replyText)
+				reply.ParseMode = "HTML"
+				_, _ = b.api.Send(reply)
+				return
+			}
+			newPart = part0
+		} else {
+			newPart = text
+		}
+
+		if oldPart != "" {
+			session.OldName = oldPart
+		}
+
+		if newPart == "" || (session.OldName != "" && strings.EqualFold(newPart, session.OldName)) {
+			replyText := fmt.Sprintf(
+				"<blockquote>⚠️ <b>%s</b>\n\n"+
+					"<b>%s:</b>\n"+
+					"<i>Example:</i> <code>Pulse</code> <i>or</i> <code>PulseMusic</code></blockquote>",
+				renamer.ToSmallCaps("New module name cannot match the current module"),
+				renamer.ToSmallCaps("Please Enter A Different New Module Name"),
+			)
+			reply := tgbotapi.NewMessage(chatID, replyText)
+			reply.ParseMode = "HTML"
+			_, _ = b.api.Send(reply)
+			return
+		}
+
+		session.NewName = newPart
 		session.Step = "AWAITING_DELIVERY_CHOICE"
 
 		logger.LogRenameInitiated(session.UserID, session.Username, session.RepoURL, session.OldName, session.NewName)
@@ -855,8 +946,8 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 		resultText := fmt.Sprintf(
 			"<blockquote>🎉 <b>%s</b></blockquote>\n\n"+
 				"<blockquote><b>Rebranding Telemetry:</b>\n"+
-				"• <b>Target Old:</b> <code>%s</code>\n"+
-				"• <b>Target New:</b> <code>%s</code>\n"+
+				"• <b>%s:</b> <code>%s</code>\n"+
+				"• <b>%s:</b> <code>%s</code>\n"+
 				"• <b>Files Scanned:</b> <code>%d</code>\n"+
 				"• <b>Files Modified:</b> <code>%d</code>\n"+
 				"• <b>Occurrences Replaced:</b> <code>%d</code>\n"+
@@ -864,7 +955,9 @@ func (b *Bot) handleConversationStep(msg *tgbotapi.Message, session *SessionStat
 				"%s</blockquote>\n\n"+
 				"<blockquote>📦 <b>Select your delivery method below:</b></blockquote>",
 			renamer.ToSmallCaps("Renaming Completed Successfully"),
+			renamer.ToSmallCaps("Original Module"),
 			session.OldName,
+			renamer.ToSmallCaps("New Module"),
 			session.NewName,
 			report.FilesScanned,
 			report.FilesModified,

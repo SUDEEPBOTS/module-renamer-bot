@@ -76,7 +76,7 @@ func LogRenameInitiated(userID int64, username, source, oldName, newName string)
 	line := fmt.Sprintf("[%s] [INFO] %s", formatTimestamp(), msg)
 	log.Println(line)
 
-	dispatchToChannel(fmt.Sprintf("[AUDIT] RENAME_INITIATED\nUserID: %d\nUsername: @%s\nSource: %s\nTarget: %s -> %s\nTimestamp: %s", userID, username, source, oldName, newName, formatTimestamp()))
+	dispatchToChannel(fmt.Sprintf("[AUDIT] RENAME_INITIATED\nUserID: %d\nUsername: @%s\nSource: %s\nRebranding: %s -> %s\nTimestamp: %s", userID, username, source, oldName, newName, formatTimestamp()))
 }
 
 func LogRenameSuccess(userID int64, username, oldName, newName string, scanned, modified, replacements, paths int) {

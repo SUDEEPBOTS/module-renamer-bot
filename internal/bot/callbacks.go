@@ -311,7 +311,7 @@ func (b *Bot) handleExportGitHub(chatID int64, messageID int, userID int64) {
 
 	promptText := fmt.Sprintf(
 		"<blockquote>🚀 <b>%s</b></blockquote>\n\n"+
-			"<blockquote>Please reply with the <b>Target GitHub Repository URL</b>\n"+
+			"<blockquote>Please reply with the <b>GitHub Destination Repository URL</b>\n"+
 			"<i>Example:</i> <code>https://github.com/SUDEEPBOTS/NewRebrandedRepo</code></blockquote>",
 		renamer.ToSmallCaps("Deploy to GitHub"),
 	)
